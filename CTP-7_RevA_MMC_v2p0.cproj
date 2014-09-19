@@ -1,0 +1,405 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectVersion>6.1</ProjectVersion>
+    <ProjectGuid>{d4650c97-d5a7-4fbb-95cf-ed441a989a6e}</ProjectGuid>
+    <avrdevice>AT32uc3a1512</avrdevice>
+    <avrdeviceseries>none</avrdeviceseries>
+    <OutputType>Executable</OutputType>
+    <Language>C</Language>
+    <OutputFile>AMC13_MMC_v1p1_Debug.elf</OutputFile>
+    <OutputDirectory>$(MSBuildProjectDirectory)\$(Configuration)</OutputDirectory>
+    <AvrGccProjectExtensions>
+    </AvrGccProjectExtensions>
+    <avrtool>com.atmel.avrdbg.tool.jtagicemk3</avrtool>
+    <avrtoolinterface>JTAG</avrtoolinterface>
+    <com_atmel_avrdbg_tool_jtagicemk3>
+      <ToolType>com.atmel.avrdbg.tool.jtagicemk3</ToolType>
+      <ToolName>JTAGICE3</ToolName>
+      <ToolNumber>J30200008360</ToolNumber>
+      <Channel>
+        <host>127.0.0.1</host>
+        <port>1074</port>
+        <ssl>False</ssl>
+      </Channel>
+      <ToolOptions>
+        <InterfaceName>JTAG</InterfaceName>
+        <InterfaceProperties>
+          <JtagDbgClock>1085038</JtagDbgClock>
+          <JtagProgClock>1000000</JtagProgClock>
+          <IspClock>150000</IspClock>
+          <JtagInChain>false</JtagInChain>
+          <JtagEnableExtResetOnStartSession>false</JtagEnableExtResetOnStartSession>
+          <JtagDevicesBefore>0</JtagDevicesBefore>
+          <JtagDevicesAfter>0</JtagDevicesAfter>
+          <JtagInstrBitsBefore>0</JtagInstrBitsBefore>
+          <JtagInstrBitsAfter>0</JtagInstrBitsAfter>
+        </InterfaceProperties>
+      </ToolOptions>
+    </com_atmel_avrdbg_tool_jtagicemk3>
+    <com_atmel_avrdbg_tool_avrone>
+      <ToolType>com.atmel.avrdbg.tool.avrone</ToolType>
+      <ToolName>AVR ONE!</ToolName>
+      <ToolNumber>00000BEBD1A0</ToolNumber>
+      <Channel>
+        <host>127.0.0.1</host>
+        <port>1139</port>
+        <ssl>False</ssl>
+      </Channel>
+      <ToolOptions>
+        <InterfaceName>JTAG</InterfaceName>
+        <InterfaceProperties>
+          <JtagDbgClock>1893255</JtagDbgClock>
+          <JtagProgClock>1000000</JtagProgClock>
+          <IspClock>150000</IspClock>
+          <JtagInChain>false</JtagInChain>
+          <JtagEnableExtResetOnStartSession>true</JtagEnableExtResetOnStartSession>
+          <JtagDevicesBefore>0</JtagDevicesBefore>
+          <JtagDevicesAfter>0</JtagDevicesAfter>
+          <JtagInstrBitsBefore>0</JtagInstrBitsBefore>
+          <JtagInstrBitsAfter>0</JtagInstrBitsAfter>
+        </InterfaceProperties>
+      </ToolOptions>
+    </com_atmel_avrdbg_tool_avrone>
+    <ToolchainName>com.Atmel.AVRGCC32.C</ToolchainName>
+    <ToolchainFlavour>Native</ToolchainFlavour>
+    <KeepTimersRunning>true</KeepTimersRunning>
+    <OverrideVtor>false</OverrideVtor>
+    <OverrideVtorValue>
+    </OverrideVtorValue>
+    <eraseonlaunchrule>0</eraseonlaunchrule>
+    <ProgFlashFromRam>true</ProgFlashFromRam>
+    <RamSnippetAddress>0x20000000</RamSnippetAddress>
+    <CacheFlash>true</CacheFlash>
+    <UncachedRange />
+    <BootSegment>2</BootSegment>
+    <Name>CTP-7_RevA_MMC_v1p0</Name>
+    <AsfFrameworkConfig>
+      <framework-data xmlns="">
+        <options />
+        <configurations />
+        <files />
+        <documentation help="" />
+        <offline-documentation help="" />
+        <dependencies>
+          <content-extension eid="atmel.asf" uuidref="Atmel.ASF" version="3.8.1" />
+        </dependencies>
+      </framework-data>
+    </AsfFrameworkConfig>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <OutputFileName>CTP-7_MMC_v2p0_Release</OutputFileName>
+    <OutputFileExtension>.elf</OutputFileExtension>
+    <ToolchainSettings>
+      <Avr32Gcc>
+        <avr32gcc.common.outputfiles.hex>True</avr32gcc.common.outputfiles.hex>
+        <avr32gcc.common.outputfiles.lss>True</avr32gcc.common.outputfiles.lss>
+        <avr32gcc.common.outputfiles.eep>True</avr32gcc.common.outputfiles.eep>
+        <avr32gcc.common.outputfiles.srec>True</avr32gcc.common.outputfiles.srec>
+        <avr32gcc.compiler.symbols.DefSymbols>
+          <ListValues>
+            <Value>TRACE</Value>
+          </ListValues>
+        </avr32gcc.compiler.symbols.DefSymbols>
+        <avr32gcc.compiler.directories.IncludePaths>
+          <ListValues>
+            <Value>../src/include</Value>
+          </ListValues>
+        </avr32gcc.compiler.directories.IncludePaths>
+        <avr32gcc.compiler.optimization.PrepareFunctionsForGarbageCollection>True</avr32gcc.compiler.optimization.PrepareFunctionsForGarbageCollection>
+        <avr32gcc.compiler.optimization.EnableFastFloatingPointLibrary>True</avr32gcc.compiler.optimization.EnableFastFloatingPointLibrary>
+        <avr32gcc.compiler.optimization.UseAssemblerForPseudoInstructions>True</avr32gcc.compiler.optimization.UseAssemblerForPseudoInstructions>
+        <avr32gcc.compiler.warnings.AllWarnings>True</avr32gcc.compiler.warnings.AllWarnings>
+        <avr32gcc.compiler.miscellaneous.OtherFlags>-c -fmessage-length=0</avr32gcc.compiler.miscellaneous.OtherFlags>
+        <avr32gcc.linker.general.DoNotUseStandardStartFiles>True</avr32gcc.linker.general.DoNotUseStandardStartFiles>
+        <avr32gcc.linker.general.GenerateMAPFile>False</avr32gcc.linker.general.GenerateMAPFile>
+        <avr32gcc.linker.libraries.Libraries>
+          <ListValues>
+            <Value>libm</Value>
+          </ListValues>
+        </avr32gcc.linker.libraries.Libraries>
+        <avr32gcc.linker.libraries.LibrarySearchPaths>
+          <ListValues>
+            <Value>../libs</Value>
+          </ListValues>
+        </avr32gcc.linker.libraries.LibrarySearchPaths>
+        <avr32gcc.linker.optimization.GarbageCollectUnusedSections>True</avr32gcc.linker.optimization.GarbageCollectUnusedSections>
+        <avr32gcc.linker.optimization.EnableFastFloatingPointLibrary>True</avr32gcc.linker.optimization.EnableFastFloatingPointLibrary>
+        <avr32gcc.linker.optimization.EnableFastMath>True</avr32gcc.linker.optimization.EnableFastMath>
+        <avr32gcc.linker.optimization.AllowDirectReferencesToDataSection>True</avr32gcc.linker.optimization.AllowDirectReferencesToDataSection>
+        <avr32gcc.linker.miscellaneous.LinkerFlags>-Wl,--gc-sections -Wl,-e,_trampoline -T../linker/link_uc3a1512.lds</avr32gcc.linker.miscellaneous.LinkerFlags>
+        <avr32gcc.linker.miscellaneous.OtherOptions>
+          <ListValues>
+            <Value>-Map=../Release/CTP-7_MMC_v1p2_Release.map</Value>
+          </ListValues>
+        </avr32gcc.linker.miscellaneous.OtherOptions>
+        <avr32gcc.assembler.general.IncludePaths>
+          <ListValues>
+            <Value>../src/include</Value>
+          </ListValues>
+        </avr32gcc.assembler.general.IncludePaths>
+        <avr32gcc.preprocessingassembler.general.IncludePaths>
+          <ListValues>
+            <Value>../src/include</Value>
+          </ListValues>
+        </avr32gcc.preprocessingassembler.general.IncludePaths>
+      </Avr32Gcc>
+    </ToolchainSettings>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <OutputFileName>CTP-7_MMC_v2p0_Debug</OutputFileName>
+    <OutputFileExtension>.elf</OutputFileExtension>
+    <ToolchainSettings>
+      <Avr32Gcc>
+        <avr32gcc.common.outputfiles.hex>True</avr32gcc.common.outputfiles.hex>
+        <avr32gcc.common.outputfiles.lss>True</avr32gcc.common.outputfiles.lss>
+        <avr32gcc.common.outputfiles.eep>True</avr32gcc.common.outputfiles.eep>
+        <avr32gcc.common.outputfiles.srec>True</avr32gcc.common.outputfiles.srec>
+        <avr32gcc.compiler.symbols.DefSymbols>
+          <ListValues>
+            <Value>TRACE</Value>
+          </ListValues>
+        </avr32gcc.compiler.symbols.DefSymbols>
+        <avr32gcc.compiler.directories.IncludePaths>
+          <ListValues>
+            <Value>../src/include</Value>
+          </ListValues>
+        </avr32gcc.compiler.directories.IncludePaths>
+        <avr32gcc.compiler.optimization.PrepareFunctionsForGarbageCollection>True</avr32gcc.compiler.optimization.PrepareFunctionsForGarbageCollection>
+        <avr32gcc.compiler.optimization.EnableFastFloatingPointLibrary>True</avr32gcc.compiler.optimization.EnableFastFloatingPointLibrary>
+        <avr32gcc.compiler.optimization.UseAssemblerForPseudoInstructions>True</avr32gcc.compiler.optimization.UseAssemblerForPseudoInstructions>
+        <avr32gcc.compiler.optimization.DebugLevel>Maximum (-g3)</avr32gcc.compiler.optimization.DebugLevel>
+        <avr32gcc.compiler.warnings.AllWarnings>True</avr32gcc.compiler.warnings.AllWarnings>
+        <avr32gcc.compiler.miscellaneous.OtherFlags>-c -fmessage-length=0</avr32gcc.compiler.miscellaneous.OtherFlags>
+        <avr32gcc.linker.general.DoNotUseStandardStartFiles>True</avr32gcc.linker.general.DoNotUseStandardStartFiles>
+        <avr32gcc.linker.libraries.Libraries>
+          <ListValues>
+            <Value>libm</Value>
+          </ListValues>
+        </avr32gcc.linker.libraries.Libraries>
+        <avr32gcc.linker.libraries.LibrarySearchPaths>
+          <ListValues>
+            <Value>../libs</Value>
+          </ListValues>
+        </avr32gcc.linker.libraries.LibrarySearchPaths>
+        <avr32gcc.linker.optimization.GarbageCollectUnusedSections>True</avr32gcc.linker.optimization.GarbageCollectUnusedSections>
+        <avr32gcc.linker.optimization.EnableFastFloatingPointLibrary>True</avr32gcc.linker.optimization.EnableFastFloatingPointLibrary>
+        <avr32gcc.linker.optimization.EnableFastMath>True</avr32gcc.linker.optimization.EnableFastMath>
+        <avr32gcc.linker.optimization.AllowDirectReferencesToDataSection>True</avr32gcc.linker.optimization.AllowDirectReferencesToDataSection>
+        <avr32gcc.linker.miscellaneous.LinkerFlags>-Wl,--gc-sections -Wl,-e,_trampoline -T../linker/link_uc3a1512.lds</avr32gcc.linker.miscellaneous.LinkerFlags>
+        <avr32gcc.linker.miscellaneous.OtherOptions>
+          <ListValues>
+            <Value>-Map=../Debug/CTP-7_MMC_v1p2_Debug.map</Value>
+          </ListValues>
+        </avr32gcc.linker.miscellaneous.OtherOptions>
+        <avr32gcc.assembler.general.IncludePaths>
+          <ListValues>
+            <Value>../src/include</Value>
+          </ListValues>
+        </avr32gcc.assembler.general.IncludePaths>
+        <avr32gcc.preprocessingassembler.general.IncludePaths>
+          <ListValues>
+            <Value>../src/include</Value>
+          </ListValues>
+        </avr32gcc.preprocessingassembler.general.IncludePaths>
+      </Avr32Gcc>
+    </ToolchainSettings>
+  </PropertyGroup>
+  <Import Project="$(AVRSTUDIO_EXE_PATH)\\Vs\\AvrGCC32.targets" />
+  <ItemGroup>
+    <Folder Include="src" />
+    <Compile Include="src\console_parser.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\fault_log.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\resetcfg.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\ipmi_cmd_parser.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\mmcmain.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\payload_mgr.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Folder Include="src\services" />
+    <Compile Include="src\services\fault_log.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\services\fpga_autoconfig.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\services\ipmb_svc.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\services\nonvolatile.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\services\sensor_svc.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\services\swevent.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Folder Include="src\include" />
+    <Compile Include="src\include\adc.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\pins.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\compiler.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\conf_isp.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\console_parser.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\eepspi.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\ejecthandle.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\events.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\fpgaspi.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\fpga_autoconfig.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\gpio.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\intc.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\ipmb_svc.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\ipmi_cmd_parser.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\LEDdrivers.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\mmc_version.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\mrepeat.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\nonvolatile.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\payload_mgr.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\preprocessor.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\pwrmgr.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\rtc.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\sensor_svc.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\sio_usart.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\spi1.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\stringz.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\swevent.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\timer_callback.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\tpaste.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\twidriver.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\include\utils.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Folder Include="src\drivers" />
+    <Compile Include="src\drivers\adc.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\crt0.x">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\eepspi.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\ejecthandle.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\exception.x">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\fpgaspi.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\gpio.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\intc.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\LEDdrivers.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\pwrmgr.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\rtc.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\sio_usart.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\spi1.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\timer_callback.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\trampoline.x">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\twidriver.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="src\drivers\utils.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Folder Include="notes" />
+    <None Include="notes\sampleSDR.txt">
+      <SubType>compile</SubType>
+    </None>
+    <Folder Include="libs" />
+    <None Include="libs\libnewlib_addons-at32ucr2-speed_opt.a">
+      <SubType>compile</SubType>
+    </None>
+    <Folder Include="console_output" />
+  </ItemGroup>
+</Project>

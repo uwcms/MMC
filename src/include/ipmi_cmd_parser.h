@@ -92,6 +92,13 @@
 #define IPMICMD_UWMMC_RAW_NONVOLATILE_READ           (0x42)
 #define IPMICMD_UWMMC_CHK_EEPROM_BUSY                (0x43)
 #define IPMICMD_UWMMC_EEPROM_ERASE                   (0x44)
+// New at CTP7 MMC Rev 2.1
+#define IPMICMD_UWMMC_MMC_RESET                      (0x20)
+#define IPMICMD_UWMMC_SET_MGTV                       (0x21)
+#define IPMICMD_UWMMC_GET_MGTV                       (0x22)
+#define IPMICMD_UWMMC_GET_MMC_VERSION                (0x23)
+#define IPMICMD_UWMMC_CLR_MMC_RESET_CTR              (0x24)
+// End of New at Rev 2.1
 #define NONVOLATILE_MAX_XFER_LEN                      (20)
 
 // cmds in CMS common NetFn (3c/3d)

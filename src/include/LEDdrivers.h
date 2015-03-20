@@ -72,6 +72,7 @@ extern const LED_activity_desc_t LED_On_Activity;
 extern const LED_activity_desc_t LED_50ms_Flash_Activity;
 extern const LED_activity_desc_t LED_1Hz_Blink_Activity;
 extern const LED_activity_desc_t LED_1Hz_Blink_Activity_8020;
+extern const LED_activity_desc_t LED_1Hz_Blink_Activity_7525;
 extern const LED_activity_desc_t LED_1p5Hz_Blink_Activity;
 extern const LED_activity_desc_t LED_0p5Hz_Blink_Activity;
 extern const LED_activity_desc_t LED_driver_bypass;

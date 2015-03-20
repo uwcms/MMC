@@ -17,6 +17,7 @@ const LED_activity_desc_t LED_On_Activity = {On, LEDON, 0, 0};
 const LED_activity_desc_t LED_50ms_Flash_Activity = {Blink, LEDON, 5, 0};
 const LED_activity_desc_t LED_1Hz_Blink_Activity = {Blink, LEDON, 50, 50};
 const LED_activity_desc_t LED_1Hz_Blink_Activity_8020 = {Blink, LEDON, 80, 20};
+const LED_activity_desc_t LED_1Hz_Blink_Activity_7525 = {Blink, LEDON, 75, 25};
 const LED_activity_desc_t LED_0p5Hz_Blink_Activity = {Blink, LEDON, 100, 100};
 const LED_activity_desc_t LED_1p5Hz_Blink_Activity = {Blink, LEDON, 33, 33};
 const LED_activity_desc_t LED_driver_bypass = {Bypass, LEDOFF, 0, 0};

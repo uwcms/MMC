@@ -52,7 +52,8 @@ req_msg_tbl_entry_t ReqMsgTbl[REQ_MSG_TBL_SIZE];
 
 void ipmb_init(void) {
   rqSEQ = 1;
-  memset((void*) &ReqMsgTbl, 0, sizeof(req_msg_tbl_entry_t));
+  //memset((void*) &ReqMsgTbl, 0, sizeof(req_msg_tbl_entry_t));       // only zeroes out first entry!!
+  memset((void*) &ReqMsgTbl, 0, sizeof(ReqMsgTbl));                   // fixed at 2.2a, zeroes entire table
   event_rcvr_ipmbl_addr = DEFAULT_EVT_RCVR_IPMBL_ADDR;
   event_rcvr_lun = 0;
   register_timer_callback(xmt_retry_timer_callback, TEVENT_100MSEC_2);
@@ -67,6 +68,7 @@ void ipmb_init_req_hdr(unsigned char* pmsg, unsigned char rsSA, unsigned char ne
   IPMB_RQ_HXSUM(pmsg) = calc_ipmi_xsum(pmsg, 2);
   IPMB_RQ_rqSA(pmsg) = twi_state.ipmbl_addr;
   IPMB_RQ_rqSEQ_SET(pmsg, rqSEQ++);
+  rqSEQ = rqSEQ & 0x3f;
   IPMB_RQ_rqLUN_SET(pmsg, rqLUN);
 }
 
@@ -196,7 +198,8 @@ int ipmb_send_request(ipmb_msg_desc_t* pmsg, ptrMsgCallback rspCallback) {
 
   // copy message into table
   preq = &ReqMsgTbl[tblidx];
-  for (i1=0; i1<pmsg->len; i1++)
+//  for (i1=0; i1<pmsg->len; i1++)
+  for (i1=0; i1<sizeof(pmsg->buf); i1++)       // New at 2.2a--copy entire buffer, not just active length
     preq->msg.buf[i1] = pmsg->buf[i1];
   preq->msg.len = pmsg->len;
   preq->prspcallback = rspCallback;				// copy callback pointer
@@ -303,9 +306,9 @@ void check_req_msg_table(void) {
   unsigned char xmtcnt, timerval;
   req_msg_tbl_entry_t* preq;
   for (i1=0; i1<REQ_MSG_TBL_SIZE; i1++) {
-	preq = &ReqMsgTbl[i1];
-	if ((!(preq->ocflag_rqSeq & 0x80)) || (preq->msg.len == 0))
-	  continue;					// this table position is currently empty or not ready to be transmitted
+	  preq = &ReqMsgTbl[i1];
+	  if ((!(preq->ocflag_rqSeq & 0x80)) || (preq->msg.len == 0))
+	    continue;					// this table position is currently empty or not ready to be transmitted
     xmtcnt = preq->xmtcnt;
     timerval = preq->timer;
     if (!xmtcnt) {
@@ -314,8 +317,8 @@ void check_req_msg_table(void) {
         sio_filt_putstr(TXTFILT_DBG_SUMMARY, 1, "? Queue full, request message NOT enqueued\n  ");
       }
       else {
-    	preq->timer = 0;			// zero out timer
-    	preq->xmtcnt = 1;			// initialize transmit count
+      	preq->timer = 0;			// zero out timer
+      	preq->xmtcnt = 1;			// initialize transmit count
       }
       return;
     }
@@ -359,10 +362,10 @@ int match_rsp_to_req(unsigned char rsp_rqSeq, unsigned char rsp_rsSA) {
   int i1;
   req_msg_tbl_entry_t* preq = &ReqMsgTbl[0];
   for (i1=0; i1<REQ_MSG_TBL_SIZE; i1++) {
-	if (preq->ocflag_rqSeq == key)
-	  if (IPMB_RQ_rsSA(preq->msg.buf) == rsp_rsSA)
-		// have match also on rsSA
-	    return i1;
+	  if (preq->ocflag_rqSeq == key)
+	    if (IPMB_RQ_rsSA(preq->msg.buf) == rsp_rsSA)
+		  // have match also on rsSA
+	      return i1;
     preq++;
   }
   return -1;
@@ -372,8 +375,9 @@ int match_rsp_to_req(unsigned char rsp_rqSeq, unsigned char rsp_rsSA) {
 void free_req_msg_table_entry(int entry_index) {
   // function to free up an entry in the request message table
   if ((entry_index <0) || (entry_index >= REQ_MSG_TBL_SIZE))
-	return;			// out of range
+	  return;			// out of range
   ReqMsgTbl[entry_index].ocflag_rqSeq = 0x00;				// clear occupied flag
+
 }
 
 void ipmb_msg_dump(const ipmb_msg_desc_t* pmsg, int filtcode) {
@@ -456,10 +460,10 @@ void request_msg_dump(ipmb_msg_desc_t* pmsg) {
     "Quiesced",
     "Backend_power failure",
     "Backend power shutdown"};
-	const char* Config_Event_str[] = {"firmware load done", "FPGA firmware req", "FPGA 0 SPI detect",
-	  "FPGA 0 req cfg", "FPGA 0 cfg ready",
-	  "FPGA 1 SPI detect", "FPGA 1 req cfg", "FPGA 1 cfg rdy",
-	  "FPGA 2 SPI detect", "FPGA 2 req cfg", "FPGA 2 cfg rdy" };
+	const char* Config_Event_str[] = {"firmware load done (0x0001)", "FPGA firmware req (0x0002)", "FPGA 0 SPI detect (0x0004)",
+	  "FPGA 0 req cfg (0x0008)", "FPGA 0 cfg ready (0x0010)",
+	  "FPGA 1 SPI detect (0x0020)", "FPGA 1 req cfg (0x0040)", "FPGA 1 cfg rdy (0x0080)",
+	  "FPGA 2 SPI detect (0x0100)", "FPGA 2 req cfg (0x0200)", "FPGA 2 cfg rdy (0x0400)" };
 	const char* Event_Direction_str[] = {"assert", "deassert" };
 
   // dump of request message

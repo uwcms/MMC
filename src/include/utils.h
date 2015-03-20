@@ -39,13 +39,14 @@ typedef struct {
   unsigned long hottime;
   unsigned long uptime;
   unsigned long reset_cnt;
+  unsigned long lastrsttime;
 } timestats_rec_t;
 
 #define CAPBUFBASEADDR            (0x0000fe00)
 #define CAPBUF                    (*((capture_buf_rec_t*) CAPBUFBASEADDR))
 #define RDOUTBUFBASEADDR          (0x0000fc00)
 #define RDOUTBUF                  (*((capture_buf_rec_t*) RDOUTBUFBASEADDR))
-#define TIMESTATSADDR             (0x0000fff0)
+#define TIMESTATSADDR             (0x0000ffe8)
 #define TIMESTATREC               (*((timestats_rec_t*) TIMESTATSADDR))
 
 

@@ -9,6 +9,7 @@
 #include <avr32/io.h>
 #include <stdio.h>
 #include <string.h>
+#include "mmc_version.h"
 #include "utils.h"
 #include "swevent.h"
 #include "timer_callback.h"
@@ -950,7 +951,6 @@ void parse_UWMMC_cmds(const ipmb_msg_desc_t*preq, ipmb_msg_desc_t* prsp) {
 		  break;
 		  
     case IPMICMD_UWMMC_GET_PYLD_MGR_SETTING_REC:
-
       sio_filt_putstr(TXTFILT_IPMI_CUSTOM_REQ, 1, "IPMICMD_UWMMC_GET_PYLD_MGR_SETTING_REC\n");
       // BYTE         DATA FIELD
       // Command Format:
@@ -1571,13 +1571,23 @@ void parse_UWMMC_cmds(const ipmb_msg_desc_t*preq, ipmb_msg_desc_t* prsp) {
       // Response Format:
       //   1          Completion Code.
       //   2          32-bit mmc up time, LS byte
-      //   3          32-bit mmc up time, bits [15:8
+      //   3          32-bit mmc up time, bits [15:8]
       //   4          32-bit mmc up time, bits [23:16]
       //   5          32-bit mmc up time, MS byte
       //   6          32-bit backend hot time, LS byte
-      //   7          32-bit backend hot time, bits [15:8
+      //   7          32-bit backend hot time, bits [15:8]
       //   8          32-bit backend hot time, bits [23:16]
       //   9          32-bit backend hot time, MS byte
+      // ADDITIONAL BITS AT MMC VERSION 2.1 BELOW
+      //   10         Reset Counter, LS byte
+      //   11         Reset Counter, bits [15:8]
+      //   12         Reset Counter, bits [23:16]
+      //   13         Reset Counter, MS byte
+      //   14         32-bit time since last reset, LS byte
+      //   15         32-bit time since last reset, bits [15:8]
+      //   16         32-bit time since last reset, bits [23:16]
+      //   17         32-bit time since last reset, MS byte
+
       systime = get_rtc_value();
       IPMB_RS_CCODE(prsp->buf) = IPMI_RS_NORMAL_COMP_CODE;
       prsdata[2] = TIMESTATREC.uptime & 0xff;
@@ -1588,8 +1598,215 @@ void parse_UWMMC_cmds(const ipmb_msg_desc_t*preq, ipmb_msg_desc_t* prsp) {
       prsdata[7] = (TIMESTATREC.hottime >> 8) & 0xff;
       prsdata[8] = (TIMESTATREC.hottime >> 16) & 0xff;
       prsdata[9] = (TIMESTATREC.hottime >> 24) & 0xff;
-      prsp->len += 8;
+      prsdata[10] = TIMESTATREC.reset_cnt & 0xff;
+      prsdata[11] = (TIMESTATREC.reset_cnt >> 8) & 0xff;
+      prsdata[12] = (TIMESTATREC.reset_cnt >> 16) & 0xff;
+      prsdata[13] = (TIMESTATREC.reset_cnt >> 24) & 0xff;
+      prsdata[14] = TIMESTATREC.lastrsttime & 0xff;
+      prsdata[15] = (TIMESTATREC.lastrsttime >> 8) & 0xff;
+      prsdata[16] = (TIMESTATREC.lastrsttime >> 16) & 0xff;
+      prsdata[17] = (TIMESTATREC.lastrsttime >> 24) & 0xff;
+      prsp->len += 16;
+      break;
 
+    case IPMICMD_UWMMC_MMC_RESET:
+      sio_filt_putstr(TXTFILT_IPMI_CUSTOM_REQ, 1, "IPMICMD_UWMMC_MMC_RESET\n");
+      // Function resets the MMC by disabling service of the watchdog timer.
+      // BYTE         DATA FIELD
+      // Command Format:
+      //   (no bytes)
+      // Response Format:
+      //   1          Completion Code.
+      IPMB_RS_CCODE(prsp->buf) = IPMI_RS_NORMAL_COMP_CODE;
+      Service_Watchdog();     // service it now to reset the counters (to increase chances for response code to be sent before reset kicks in)
+      Force_Watchdog_Reset();   // disable further service, causing eventual reset
+      break;
+
+    case IPMICMD_UWMMC_SET_MGTV:
+      sio_filt_putstr(TXTFILT_IPMI_CUSTOM_REQ, 1, "IPMICMD_UWMMC_SET_MGTV\n");
+      // Function sets a single MGT voltage or trim setting
+      //   1          [7] - 1b=update setting in nonvolatile storage
+      //              [6] - 1b=update current operational setting
+      //              [5:0] - Unused, reserved
+      //   2          Field ID, where:
+      //                0 = 1.0VL setpoint
+      //                1 = 1.0VR setpoint
+      //                2 = 1.0VL trim
+      //                3 = 1.0VR trim
+      //                4 = 1.2VL trim
+      //                5 = 1.2VR trim
+      //                6-FFh = Unused, reserved
+      //   3          Field value as follows:
+      //                For setpoints, 0=low (1.0V), 1=high (1.05V)
+      //                For trim, 0=off (0%), 1=-5%, 2=-3%, 3=-1%, 4=+1%, 5=+3%, 6=+5%
+      // Response Format:
+      //   1          Completion Code.
+      IPMB_RS_CCODE(prsp->buf) = IPMI_RS_NORMAL_COMP_CODE;
+      if (preq->len < IPMBREQOVHEAD+3) {
+        // not enough params
+        IPMB_RS_CCODE(prsp->buf) = IPMI_RS_INVALID_DATA_LENGTH;
+        break;
+      }
+      if (!(prqdata[1] & 0xc0))
+        break;      // nothing to write
+      // validate parameters
+      if ((prqdata[2] > 5)  || ((prqdata[2] <= 1) && (prqdata[3] > 1)) || ((prqdata[2] > 1) && (prqdata[3] > 5))) {
+        IPMB_RS_CCODE(prsp->buf) = IPMI_RS_INVALID_FIELD_IN_REQ;
+        break;
+      }
+      if (prqdata[1] & 0x80) {
+        // apply updates to nonvolatile storage
+        if (eepspi_chk_write_in_progress()) {
+          IPMB_RS_CCODE(prsp->buf) = IPMI_RS_NODE_BUSY;
+          break;
+        }
+        eepspi_read((unsigned char*) &PMsettingsbuf, PAYLDMGR_AREA_BYTE_OFFSET, sizeof(nonvolatile_settings_t));           // read the nonvolatile settings
+        switch (prqdata[2]) {
+          case 0:
+            // 1.0VL setpoint
+            apply_voltage_settings_to_reg(prqdata[3], MGTLDO_1p0VL, &(PMsettingsbuf.MGT_Vreg));
+            break;
+          case 1:
+            // 1.0VR setpoint
+            apply_voltage_settings_to_reg(prqdata[3], MGTLDO_1p0VR, &(PMsettingsbuf.MGT_Vreg));
+            break;
+          case 2:
+            // 1.0VL trim
+            apply_trim_settings_to_reg(prqdata[3], MGTLDO_1p0VL, &(PMsettingsbuf.MGT_Vreg));
+            break;
+          case 3:
+            // 1.0VR trim
+            apply_trim_settings_to_reg(prqdata[3], MGTLDO_1p0VR, &(PMsettingsbuf.MGT_Vreg));
+            break;
+         case 4:
+            // 1.2VL trim
+            apply_trim_settings_to_reg(prqdata[3], MGTLDO_1p2VL, &(PMsettingsbuf.MGT_Vreg));
+            break;
+         case 5:
+            // 1.2VR trim
+            apply_trim_settings_to_reg(prqdata[3], MGTLDO_1p2VR, &(PMsettingsbuf.MGT_Vreg));
+            break;
+         default:
+            // no changes
+            break;
+        }
+        eepspi_write((unsigned char*) &PMsettingsbuf, PAYLDMGR_AREA_BYTE_OFFSET, sizeof(nonvolatile_settings_t));          // rewrite bytes with modified fields
+      }
+
+      if (prqdata[1] & 0x40) {
+        // apply updates to current settings--both payload manager register and pins
+        switch (prqdata[2]) {
+          case 0:
+            // 1.0VL setpoint
+            apply_voltage_settings_to_reg(prqdata[3], MGTLDO_1p0VL, &(pyldmgr_state.settings.MGT_Vreg));
+            apply_voltage_settings_to_pins(prqdata[3], MGTLDO_1p0VL);
+            break;
+          case 1:
+            // 1.0VR setpoint
+            apply_voltage_settings_to_reg(prqdata[3], MGTLDO_1p0VR, &(pyldmgr_state.settings.MGT_Vreg));
+            apply_voltage_settings_to_pins(prqdata[3], MGTLDO_1p0VR);
+            break;
+          case 2:
+            // 1.0VL trim
+            apply_trim_settings_to_reg(prqdata[3], MGTLDO_1p0VL, &(pyldmgr_state.settings.MGT_Vreg));
+            apply_trim_settings_to_pins(prqdata[3], MGTLDO_1p0VL);
+            break;
+          case 3:
+            // 1.0VR trim
+            apply_trim_settings_to_reg(prqdata[3], MGTLDO_1p0VR, &(pyldmgr_state.settings.MGT_Vreg));
+            apply_trim_settings_to_pins(prqdata[3], MGTLDO_1p0VR);
+            break;
+          case 4:
+            // 1.2VL trim
+            apply_trim_settings_to_reg(prqdata[3], MGTLDO_1p2VL, &(pyldmgr_state.settings.MGT_Vreg));
+            apply_trim_settings_to_pins(prqdata[3], MGTLDO_1p2VL);
+            break;
+          case 5:
+            // 1.2VR trim
+            apply_trim_settings_to_reg(prqdata[3], MGTLDO_1p2VR, &(pyldmgr_state.settings.MGT_Vreg));
+            apply_trim_settings_to_pins(prqdata[3], MGTLDO_1p2VR);
+            break;
+          default:
+            // no changes
+            break;
+        }
+      }
+      break;
+
+    case IPMICMD_UWMMC_GET_MGTV:
+      sio_filt_putstr(TXTFILT_IPMI_CUSTOM_REQ, 1, "IPMICMD_UWMMC_GET_MGTV\n");
+      // Function returns the MGT voltage and trim settings
+      // BYTE         DATA FIELD
+      // Command Format:
+      //   1          [7] - 1b=return settings from nonvolatile storage, 0b=return current settings
+      //              [6:0] - Unused, reserved
+      // Response Format:
+      //   1          Completion Code.
+      //   2          1.0VL Setpoint, (0=low [1.0V], 1=high [1.05V])
+      //   3          1.0VR Setpoint, (0=low [1.0V], 1=high [1.05V])
+      //   4          1.0VL Trim (0=off, 1=-5%, 2=-3%, 3=-1%, 4=+1%, 5=+3%, 6=+5%)
+      //   5          1.0VR Trim (0=off, 1=-5%, 2=-3%, 3=-1%, 4=+1%, 5=+3%, 6=+5%)
+      //   6          1.2VL Trim (0=off, 1=-5%, 2=-3%, 3=-1%, 4=+1%, 5=+3%, 6=+5%)
+      //   7          1.2VR Trim (0=off, 1=-5%, 2=-3%, 3=-1%, 4=+1%, 5=+3%, 6=+5%)
+      IPMB_RS_CCODE(prsp->buf) = IPMI_RS_NORMAL_COMP_CODE;
+	    if (prqdata[1] & 0x80) {
+  	    // return settings from non-volatile memory
+  	    if (eepspi_chk_write_in_progress()) {
+    	    IPMB_RS_CCODE(prsp->buf) = IPMI_RS_NODE_BUSY;
+    	    break;
+  	    }
+  	    eepspi_read((unsigned char*) &PMsettingsbuf, PAYLDMGR_AREA_BYTE_OFFSET, sizeof(nonvolatile_settings_t)); 
+        prsdata[2] = PMsettingsbuf.MGT_Vreg.bits.left1p0_set;
+  	    prsdata[3] = PMsettingsbuf.MGT_Vreg.bits.right1p0_set;
+        prsdata[4] = PMsettingsbuf.MGT_Vreg.bits.left1p0_margin;
+        prsdata[5] = PMsettingsbuf.MGT_Vreg.bits.right1p0_margin;
+        prsdata[6] = PMsettingsbuf.MGT_Vreg.bits.left1p2_margin;
+        prsdata[7] = PMsettingsbuf.MGT_Vreg.bits.right1p2_margin;
+	    }
+	    else {
+  	    // return current settings
+  	    prsdata[2] = pyldmgr_state.settings.MGT_Vreg.bits.left1p0_set;
+  	    prsdata[3] = pyldmgr_state.settings.MGT_Vreg.bits.right1p0_set;
+  	    prsdata[4] = pyldmgr_state.settings.MGT_Vreg.bits.left1p0_margin;
+  	    prsdata[5] = pyldmgr_state.settings.MGT_Vreg.bits.right1p0_margin;
+        prsdata[6] = pyldmgr_state.settings.MGT_Vreg.bits.left1p2_margin;
+        prsdata[7] = pyldmgr_state.settings.MGT_Vreg.bits.right1p2_margin;
+	    }
+      prsp->len += 6;
+      break;
+
+    case IPMICMD_UWMMC_GET_MMC_VERSION:
+      sio_filt_putstr(TXTFILT_IPMI_CUSTOM_REQ, 1, "IPMICMD_UWMMC_GET_MMC_VERSION\n");
+      // Function resets the MMC by disabling service of the watchdog timer.
+      // BYTE         DATA FIELD
+      // Command Format:
+      //   (no bytes)
+      // Response Format:
+      //   1          Completion Code.
+      //   2          Major Firmware Revision Byte
+      //   3          Minor Firmware Revision Byte
+      //   4          Date String Length (N)
+      //   5..(5+N-1) Date String
+      IPMB_RS_CCODE(prsp->buf) = IPMI_RS_NORMAL_COMP_CODE;
+      prsdata[2] = MAJOR_MMC_VERSION_NUMBER;
+      prsdata[3] = MINOR_MMC_VERSION_NUMBER;
+      prsdata[4] = MMC_VERSION_STRLEN;
+      strncpy(spbuf, MMC_VERSION_STRING, MMC_VERSION_STRLEN);
+      for (i1=0; i1<MMC_VERSION_STRLEN; i1++)
+        prsdata[5+i1] = spbuf[i1];
+      prsp->len += MMC_VERSION_STRLEN+3;
+      break;
+
+    case IPMICMD_UWMMC_CLR_MMC_RESET_CTR:
+      sio_filt_putstr(TXTFILT_IPMI_CUSTOM_REQ, 1, "IPMICMD_UWMMC_CLR_MMC_RESET_CTR\n");
+      // Function clears the MMC reset counter, setting it back to zero.
+      // BYTE         DATA FIELD
+      // Command Format:
+      //   (no bytes)
+      // Response Format:
+      //   1          Completion Code.
+      IPMB_RS_CCODE(prsp->buf) = IPMI_RS_NORMAL_COMP_CODE;
+      TIMESTATREC.reset_cnt = 0;
       break;
 
     case IPMICMD_UWMMC_SET_SYSTIME:

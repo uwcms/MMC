@@ -46,7 +46,7 @@ void fpga_autoconfig_init(void) {
 	FPGA_configrec_header_t* pPort_config_rec_hdr;
 	
   // check to see if autoconfig area needs formatting
-  memset((void *) &autocfg_buf[0], 0xff, FPGA_CONFIG_AREA_SIZE);
+  memset((void *) &autocfg_buf[0], 0xff, sizeof(autocfg_buf));
   // get default settings from eeprom
   while (eepspi_chk_write_in_progress());     // wait for EEPROM to be available
   eepspi_read(&autocfg_buf[0], FPGA_CONFIG_AREA_BYTE_OFFSET, FPGA_CONFIG_AREA_SIZE);
@@ -214,10 +214,12 @@ int CTP7_Linux_Boot_Indicator(event eventID, void* arg) {
   unsigned char slave_detect_mask;
   unsigned char status_reg;
   // check the status register at device 0, and update the yellow IPMI LED according to the state of the Linux booting status bit
+  // New at Version 2.1:  Update the green IPMI LED according to the state of the request config and config ready bits
   
   if (pyldmgr_get_backend_power_status() == power_off) {
     // just in case the back end is off when this callback is made
     program_LED(IPMI_LED1Y_TBL_IDX, Local_Control, &LED_Off_Activity);
+    program_LED(IPMI_LED2_TBL_IDX, Local_Control, &LED_Off_Activity);
     return 1;
   }
 
@@ -231,15 +233,20 @@ int CTP7_Linux_Boot_Indicator(event eventID, void* arg) {
   if (slave_detect_mask & FPGA0_SPI_DETECT_MASK) {
     // read status register
     status_reg = fpgaspi_status_read(0);
-    if (status_reg & FPGASPI_SR_LINUX_BOOT_ACTIVE) {
+    if (status_reg & FPGASPI_SR_LINUX_BOOT_ACTIVE) 
       program_LED(IPMI_LED1Y_TBL_IDX, Local_Control, &LED_1Hz_Blink_Activity_8020);
-    }
     else
       program_LED(IPMI_LED1Y_TBL_IDX, Local_Control, &LED_Off_Activity);
-  }
-  else
-    program_LED(IPMI_LED1Y_TBL_IDX, Local_Control, &LED_Off_Activity);
 
+    if (!(status_reg & FPGASPI_SR_CFGRDY) && (status_reg & FPGASPI_SR_REQCFG)) 
+      program_LED(IPMI_LED2_TBL_IDX, Local_Control, &LED_1Hz_Blink_Activity_7525);
+    else
+      program_LED(IPMI_LED2_TBL_IDX, Local_Control, &LED_Off_Activity);
+  }
+  else {
+    program_LED(IPMI_LED1Y_TBL_IDX, Local_Control, &LED_Off_Activity);
+    program_LED(IPMI_LED2_TBL_IDX, Local_Control, &LED_Off_Activity);
+  }
   spi1_unlock();  
   return 1;
 }

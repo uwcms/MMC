@@ -445,6 +445,9 @@ void parse_cmd(const char*const plinebuf, const char** plbpos, const char* pcmdw
       sio_putstr(spbuf);
       sprintf(spbuf, "Reset Counter:  %li\n", TIMESTATREC.reset_cnt);
       sio_putstr(spbuf);
+      etimestr(reply_buf, TIMESTATREC.lastrsttime);
+      sprintf(spbuf, "Elapsed Time Since Last Reset:  %s\n", reply_buf);
+      sio_putstr(spbuf);
       sprintf(spbuf, "Current MMC Time:  %s\n", systimestr());
       sio_putstr(spbuf);
       break;

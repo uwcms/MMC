@@ -210,13 +210,12 @@ int fpgaspi_data_read(const unsigned char deviceID, unsigned char* prbuf, unsign
   delayflag = 1;
   // flash LED2 during config I/O
   while (1) {
-  Disable_global_interrupt();
-  // send read command and starting address
-  AVR32_SPI1.tdr = READ_DATA_CMD;
-  //AVR32_SPI1.tdr = WRITE_DATA_CMD;      // **** special to deal with firmware bug ****
+    Disable_global_interrupt();
+    // send read command and starting address
+    AVR32_SPI1.tdr = READ_DATA_CMD;
     while (!AVR32_SPI1.SR.tdre);      // wait for byte to move
     rdata = AVR32_SPI1.rdr;       // unload read data register
-  AVR32_SPI1.tdr = readhaddr;     // upper address bits
+    AVR32_SPI1.tdr = readhaddr;     // upper address bits
     while (!AVR32_SPI1.SR.tdre);      // wait for byte to move
     rdata = AVR32_SPI1.rdr;       // unload read data register
     AVR32_SPI1.tdr = readladdr;     // lower bits

@@ -61,7 +61,6 @@ void send_threshold_sensor_event(int offsetnum, int sensornum, event_assertion_t
 void send_discrete_sensor_event(int offsetnum, int sensornum, event_assertion_type_t evtype);
 void payload_based_sensor_read(void);
 unsigned char get_pbs_readout_value(long sensornum);
-int clear_payload_based_sensors(event eventID, void* arg);
 
 
 void update_sensor_events(void) {
@@ -136,7 +135,6 @@ void sensor_svc_init(void) {
 
   event_update_flag = 0;
   memset((void*) &PBSrecord, 0, sizeof(PBS_sensor_record_t));
-
   
   // initalize the sensor table
   initialize_sensor_table();
@@ -146,9 +144,6 @@ void sensor_svc_init(void) {
 
   // initialize ADC callback code
   adc_register_convert_complete_callback(internal_ADC_convert_complete);
-
-  // initialize callback to clear payload based sensors at power on
-  register_swevent_callback(clear_payload_based_sensors, PYLDMGREV_PAYLD_PWR_ON_DETECT);
 
   // initialize SDR state record
   SDRstate.sensor_cnt = 0;
@@ -329,7 +324,9 @@ void initialize_sensor_table(void) {
   SensorData[ALARM_LEVEL_SENSOR].active_context_code = SENSORACTV_ALWAYS;
   SensorData[ALARM_LEVEL_SENSOR].send_event_function = send_discrete_sensor_event;
 
-  SensorData[FPGA_CONFIG_SENSOR].readout_function = get_FPGA_Config_sensor_value;
+  //SensorData[FPGA_CONFIG_SENSOR].readout_function = get_FPGA_Config_sensor_value;   // call is disconnected as of Version 2.1b, as the FPGA_REQ and DONE bits are not serviced from the ZYNQ
+  //Events for this sensor are now generated not through a readout function, but through the autoconfig service agent, similar to the way that the hotswap sensor is serviced
+  SensorData[FPGA_CONFIG_SENSOR].readout_function = NULL;
   SensorData[FPGA_CONFIG_SENSOR].readout_func_arg = 0;
   SensorData[FPGA_CONFIG_SENSOR].pSDR = (SDR_type_01h_t*) &SDRtbl[SDR_FPGA_CONFIG_SENSOR];
   SensorData[FPGA_CONFIG_SENSOR].event_msg_ctl = SENSOREV_MSG_CTL_ENABLE_ALL_EVENTS_MASK;
@@ -1297,8 +1294,7 @@ void build_default_SDR_image(void) {
   pSDR->sensorcap = 0x40;
   pSDR->sensortype = FPGA_CONFIG_SENSOR_TYPE;        // custom type for the config sensor
   pSDR->event_reading_type = SENSOR_SPECIFIC_READING_TYPE;
-  event_mask = (FPGACFGEV_LOAD_DONE_MASK | FPGACFGEV_SPI_DETECT0_MASK | FPGACFGEV_REQCFG0_MASK | FPGACFGEV_SPI_DETECT1_MASK | FPGACFGEV_REQCFG1_MASK | FPGACFGEV_SPI_DETECT2_MASK | FPGACFGEV_REQCFG2_MASK |
-    FPGACFGEV_CFGRDY0_MASK | FPGACFGEV_CFGRDY1_MASK | FPGACFGEV_CFGRDY2_MASK);
+  event_mask = (FPGACFGEV_REQCFG0_MASK | FPGACFGEV_CFGRDY0_MASK);
   pSDR->assertion_event_mask[LOWBYTE] = (unsigned char) (event_mask & 0xff);
   pSDR->assertion_event_mask[HIGHBYTE] = 0x70 | (unsigned char) (event_mask >> 8);
   pSDR->deassertion_event_mask[LOWBYTE] = 0;  // no deassertion mask bits 
@@ -1340,7 +1336,7 @@ void build_default_SDR_image(void) {
   // reading = (degC) * (40 * RAW_VALUE + 1000) * 0.01   ==> reading = (0.40 * RAW_VALUE + 10) * degC
   // min reading = 10 degC, max reading = 112 degC
   pSDR->sensor_max_reading = 0xfc;
-  pSDR->upper_nonrecover_thr = 200;       // 90 degrees C
+  pSDR->upper_nonrecover_thr = 175;       // 80 degrees C
   pSDR->upper_critical_thr = 150;         // 70 degrees C
   pSDR->upper_noncritical_thr = 125;      // 60 degrees C
   pSDR->pos_thr_hysteresis = 2;
@@ -1379,7 +1375,7 @@ void build_default_SDR_image(void) {
   // reading = (degC) * (40 * RAW_VALUE + 1000) * 0.01   ==> reading = (0.40 * RAW_VALUE + 10) * degC
   // min reading = 10 degC, max reading = 112 degC
   pSDR->sensor_max_reading = 0xfc;
-  pSDR->upper_nonrecover_thr = 200;       // 90 degrees C
+  pSDR->upper_nonrecover_thr = 175;       // 80 degrees C
   pSDR->upper_critical_thr = 150;         // 70 degrees C
   pSDR->upper_noncritical_thr = 125;      // 60 degrees C
   pSDR->pos_thr_hysteresis = 2;
@@ -1710,15 +1706,17 @@ unsigned char get_GPIO_sensor_readout_value(long pinID) {
 	return retval;
 }
 
+
 unsigned char get_FPGA_Config_sensor_value(long arg) {
 	// samples the GPIO pin sourced bits of the FPGA config discrete sensor
 	// Sampling these bits allows the calling function to determine if there have been
 	// state changes on these lines requiring events
-	// bit 0 is returned as a 1 if the DONE signal is set, otherwise 0
+	// bit 0 is returned as a 1 if the DONE signal is set (active low), otherwise 0
 	// bit 1 is returned as a 1 if the FPGA_REQIN is at a logic 0, othewise 1 (1's complement)
 	// all other bits are returned as zero
+  // NOTE:  As of MMC version 2.1b, this call is no longer executed, as these bits are disconnected from the sensor.
 	unsigned char retval = 0;
-	retval |= gpio_get_pin_value(FPGA_DONE) ? 1 : 0;
+	retval |= gpio_get_pin_value(_FPGA_DONE) ? 0 : 1;
 	retval |= gpio_get_pin_value(_FPGA_REQ_IN) ? 0 : 2;
 	return retval;
 }
@@ -1839,21 +1837,8 @@ void Process_Sensors(int sensor_update_flag) {
 			case SENSOR_SPECIFIC_READING_TYPE:
 			  switch (pSDR->sensortype) {
           case FPGA_CONFIG_SENSOR_TYPE:
-		        // update some of the state bits through polling, and others are event driven
-				    if (pSD->readout_value & FPGACFGEV_LOAD_DONE_MASK) {
-					    pSD->cur_masked_comp |= FPGACFGEV_LOAD_DONE_MASK;
-						  if (!(pSD->prev_masked_comp & FPGACFGEV_LOAD_DONE_MASK))
-						    // this is first time done is detected--send software event for interlock with the boot mode
-							  post_swevent(PYLDMGREV_FPGA_LOAD_DONE, NULL);
-					  }						
-						else
-					    pSD->cur_masked_comp &= ~FPGACFGEV_LOAD_DONE_MASK;
-				    if (pSD->readout_value & FPGACFGEV_FPGA_FIRMWARE_MASK)
-					    pSD->cur_masked_comp |= FPGACFGEV_FPGA_FIRMWARE_MASK;
-						else
-					    pSD->cur_masked_comp &= ~FPGACFGEV_FPGA_FIRMWARE_MASK;
-            break;
-			
+            // config sensor is updated by the autoconfig agent and not a readout function
+            // nothing to do here
 			    case HOTSWAP_SENSOR_TYPE:
 			      // hotswap sensor is updated on an event-driven basis, as opposed to being polled
 				    // nothing to do here
@@ -1912,7 +1897,7 @@ void update_sensor_discrete_state(int sensornum, int deassert_mask, int assert_m
 	// the assertions.  If multiple bits are to be asserted or deasserted, and the order of
 	// associated event transmission is important, then the transitions should be serialized into
 	// multiple calls
-	sensor_data_entry_t* pSD = &SensorData[HOTSWAP_SENSOR];
+	sensor_data_entry_t* pSD;
   unsigned short assertion_mask, deassertion_mask;
 
   if ((sensornum < 0) || (sensornum >= MAX_SENSOR_CNT))
@@ -2042,30 +2027,26 @@ void payload_based_sensor_read(void) {
   // read payload-based-sensor record via MMC SPI interface
   // check power status first, define record as empty/invalid if payload unavailable
   if ((pyldmgr_get_backend_power_status() == power_off) || (SensorData[HOTSWAP_SENSOR].cur_masked_comp & HOTSWAP_QUIESCED_MASK)) {
-    PBSrecord.updateflag = 0;
-    PBSrecord.validmask = 0;          // mark all values as invalid
+    memset((void*) &PBSrecord, 0, sizeof(PBS_sensor_record_t));
     return;
   }
     
   if (!spi1_lock()) {
     // can't get SPI1 (should never happen unless something is fouled up seriously in the code
-    PBSrecord.updateflag = 0;
-    PBSrecord.validmask = 0;          // mark all values as invalid
+    memset((void*) &PBSrecord, 0, sizeof(PBS_sensor_record_t));
     return;
   }
 
   if (!(fpgaspi_slave_detect() & FPGA0_SPI_DETECT_MASK)) {
     // FPGA not booted or does not contain interface core
-    PBSrecord.updateflag = 0;
-    PBSrecord.validmask = 0;          // mark all values as invalid
+    memset((void*) &PBSrecord, 0, sizeof(PBS_sensor_record_t));
     spi1_unlock();
     return;
   }
 
   if (!fpgaspi_data_read(0, &rdbuf[0], PBS_RECORD_SPI_ADDRESS, PBS_RECORD_SPI_LENGTH)) {
     // read failed
-    PBSrecord.updateflag = 0;
-    PBSrecord.validmask = 0;          // mark all values as invalid
+    memset((void*) &PBSrecord, 0, sizeof(PBS_sensor_record_t));
     spi1_unlock();
     return;
   }
@@ -2080,6 +2061,8 @@ void payload_based_sensor_read(void) {
       if (PBSrecord.validmask & (1<<i1)) 
         // transfer this value from read buf to holding buf
         PBSrecord.pbsval[i1] = prdbuf->pbsval[i1];
+      else
+         
 
     // clear flags in MMC-SPI interface
     prdbuf->updateflag = 0;
@@ -2094,7 +2077,9 @@ void payload_based_sensor_read(void) {
 unsigned char get_pbs_readout_value(long sensornum) {
   if ((sensornum < 0) || (sensornum > PBS_OFFSET_MAX_VAL))
     return 0;       // out of range
-  return PBSrecord.pbsval[sensornum];
+  if (PBSrecord.validmask & (1 << sensornum))
+    return PBSrecord.pbsval[sensornum];
+  return 0;
 }
 
 
@@ -2122,16 +2107,6 @@ int get_payload_sensor_string(int SensorNum, char* pValuestr) {
 }
 
 
-int clear_payload_based_sensors(event eventID, void* arg) {
-  // clear values for payload based sensors
-  // this function is called at payload power on to clear previous values (including non-recoverable ones)
-  int i1;
-  PBSrecord.validmask = 0;
-  PBSrecord.updateflag = 0;
-  for (i1=0; i1<=PBS_OFFSET_MAX_VAL; i1++)
-    PBSrecord.pbsval[i1] = 0;
-  return 1;   // stay resident
-}
 
 
 

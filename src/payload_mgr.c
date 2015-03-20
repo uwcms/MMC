@@ -56,7 +56,6 @@
 
 int payload_power_off_callback(event eventID, void* arg);
 int payload_power_on_callback(event eventID, void* arg);
-int fpga_load_done_callback(event eventID, void* arg);
 
 
 int pyldmgr_100ms_timer_callback(event eventID, void* arg);
@@ -174,7 +173,6 @@ void pyldmgr_init(void) {
 
   register_swevent_callback(payload_power_on_callback, PYLDMGREV_PAYLD_PWR_ON_DETECT);
   register_swevent_callback(payload_power_off_callback, PYLDMGREV_PAYLD_PWR_OFF_DETECT);
-  register_swevent_callback(fpga_load_done_callback, PYLDMGREV_FPGA_LOAD_DONE);
   isr_event_mask = 0;
 
   // check if initializing into a hot configuration, if so, adjust state variables to reflect hot state
@@ -352,15 +350,19 @@ void pyldmgr_service(void) {
     set_MMC_pin_backend_on_state();
     // apply current MGT voltage setpoint and trim settings
     apply_mgt_ldo_settings();
+    post_swevent(PYLDMGREV_BACKEND_PWR_ON_DETECT, NULL);
 	}
 
   if (isr_event_mask & PAYLDMGR_WAITAUX_ISR_DETECT) {
     //backplane payload power came hot but aux power isn't there--signal rapid blink on blue LED as local function
-    Disable_global_interrupt();
-    isr_event_mask &= ~PAYLDMGR_WAITAUX_ISR_DETECT;
-    Enable_global_interrupt();
-    sio_filt_putstr(TXTFILT_INFO, 1, "Waiting on Auxiliary +12V Power\n");
-    program_LED(IPMI_BLUELED_TBL_IDX, Local_Control, &LED_3Hz_Blink_Activity);
+    // but first wait for carrier manager to turn off the blue LED before enabling the rapid blink
+    if (LEDstate[IPMI_BLUELED_TBL_IDX].pOvrideDesc == &LED_Off_Activity) {
+      Disable_global_interrupt();
+      isr_event_mask &= ~PAYLDMGR_WAITAUX_ISR_DETECT;
+      Enable_global_interrupt();
+      sio_filt_putstr(TXTFILT_INFO, 1, "Waiting on Auxiliary +12V Power\n");
+      program_LED(IPMI_BLUELED_TBL_IDX, Local_Control, &LED_3Hz_Blink_Activity);
+    }
   }
 	
 	if (isr_event_mask & PAYLDMGR_QUIESCE_TIMER_TICK) {
@@ -617,16 +619,6 @@ int payload_power_on_callback(event eventID, void* arg) {
 }
 
 
-int fpga_load_done_callback(event eventID, void* arg) {
-	// called when load done is detected
-	// if automatic boot mode enabled, turn off output drive
-	//program_LED(LED2_TBL_IDX, Local_Control, &LED_Off_Activity);       // turn off LED2 - FPGA load indicator
-  // line below does not make sense in the ZYNQ paradigm, which needs a CPU reset before JTAG will operate right after power-up
-	//pyldmgr_state.ctl.warm_reset_timer = WARM_RESET_TICKS;       // CPU_RESET was set to a logic zero at start of load sequence.  Now that load is done it will come up after the boot mode lines are released
-	return 1; 
-}
-
-
 int fast_output_timer_callback(event eventID, void* arg) {
 	// This function provides the fast interlock on the MMC outputs to the back end with the payload power.
 	// When payload power is inactive, the outputs should be in a proper state to avoid sneak paths.
@@ -818,6 +810,7 @@ int pyldmgr_1sec_timer_callback(event eventID, void* arg) {
   // this routine runs on the 1 second event timer, and is used to implement mmc uptime counter
   // and the backend hot time counter
   TIMESTATREC.uptime++;
+  TIMESTATREC.lastrsttime++;
   if (pyldmgr_state.ctl.backend_cur_stage == 0xff)
     TIMESTATREC.hottime++;
 #ifdef TRACE
@@ -978,11 +971,11 @@ inline void set_MMC_pin_backend_off_state(void) {
 
   GPIO.port[1].oderc = ((1<<(MGT1P2R_MTOL-32)) | (1<<(MGT1P2R_MSEL-32))  | (1<<(MGT1P0L_VSET-32)) | (1<<(MGT1P0L_MTOL-32)) | (1<<(MGT1P0L_MSEL-32)) | (1<<(MGT1P0R_VSET-32))
   | (1<<(MGT1P0R_MSEL-32)) | (1<<(MGT1P0R_MTOL-32)) | (1<<(_FPGA_CPU_RST-32)));
-	GPIO.port[1].ovrc = ((1<<(PWRGOOD-32)) | (1<<(FPGA_DONE-32)) | (1<<(_FSIO_SCANSLV-32)) | (1<<(_FPGA_PROGB-32)) | (1<<(_FPGA_REQ_IN-32))
+	GPIO.port[1].ovrc = ((1<<(PWRGOOD-32)) | (1<<(_FPGA_DONE-32)) | (1<<(_FSIO_SCANSLV-32)) | (1<<(_FPGA_PROGB-32)) | (1<<(_FPGA_REQ_IN-32))
     | (1<<(UC_PWRENA1-32)) | (1<<(UC_PWRENA2-32)) | (1<<(UC_PWRENA3-32)) | (1<<(UC_PWRENA4-32)));
-	GPIO.port[1].oders = ((1<<(PWRGOOD-32)) | (1<<(FPGA_DONE-32)) | (1<<(_FSIO_SCANSLV-32)) | (1<<(_FPGA_PROGB-32)) | (1<<(_FPGA_REQ_IN-32))
+	GPIO.port[1].oders = ((1<<(PWRGOOD-32)) | (1<<(_FPGA_DONE-32)) | (1<<(_FSIO_SCANSLV-32)) | (1<<(_FPGA_PROGB-32)) | (1<<(_FPGA_REQ_IN-32))
 	  | (1<<(UC_PWRENA1-32)) | (1<<(UC_PWRENA2-32)) | (1<<(UC_PWRENA3-32)) | (1<<(UC_PWRENA4-32)));
-	GPIO.port[1].puerc = ((1<<(PWRGOOD-32)) | (1<<(FPGA_DONE-32)) | (1<<(_FSIO_SCANSLV-32)) | (1<<(_FPGA_PROGB-32)) | (1<<(_FPGA_REQ_IN-32))
+	GPIO.port[1].puerc = ((1<<(PWRGOOD-32)) | (1<<(_FPGA_DONE-32)) | (1<<(_FSIO_SCANSLV-32)) | (1<<(_FPGA_PROGB-32)) | (1<<(_FPGA_REQ_IN-32))
 	  | (1<<(UC_PWRENA1-32)) | (1<<(UC_PWRENA2-32)) | (1<<(UC_PWRENA3-32)) | (1<<(UC_PWRENA4-32)));
 }
 
@@ -990,7 +983,7 @@ inline void set_MMC_pin_backend_on_state(void) {
   // sets the MMC/FPGA interface pins to the proper state
   // called when back end power on event is detected
 	GPIO.port[1].ovrs = (1<<(_FPGA_PROGB-32));                         // set to inactive drive state
-	GPIO.port[1].oderc = ((1<<(PWRGOOD-32)) | (1<<(FPGA_DONE-32)) | (1<<(_FPGA_REQ_IN-32)));          // turn off drive on input pins and boot mode pins for now
+	GPIO.port[1].oderc = ((1<<(PWRGOOD-32)) | (1<<(_FPGA_DONE-32)) | (1<<(_FPGA_REQ_IN-32)));          // turn off drive on input pins and boot mode pins for now
   gpio_spi1_mode();         // set SPI pins
 }
 

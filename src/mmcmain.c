@@ -32,11 +32,6 @@
 #include "console_parser.h"
 
 
-
-//TODO list for Rev B--reprogram the "MMC_PROG_B" pin to support a "graceful reboot function", that causes ZYNQ to reboot itself (if possible) without
-//cycling power.  Will need to talk to Jes about this.  This may also involve a reallocation of the orange on-board LED to something like IPMI traffic again
-
-
 int main(void) {
   // low level driver initialization
   Disable_Watchdog();
@@ -76,7 +71,7 @@ int main(void) {
   start_timers();						     // start timers
   twi_start_slave_listen();			 // put two-wire-interface in listening mode
   fpga_autoconfig_init();        // fpga autoconfiguration service
-  program_LED(LED0_TBL_IDX, Local_Control, &LED_1Hz_Blink_Activity);
+  program_LED(LED0_TBL_IDX, Local_Control, &LED_1Hz_Blink_Activity);            // MMC Timer Alive LED
   Enable_Watchdog();
 
   // main service loop

@@ -289,8 +289,8 @@ typedef void(*pSendEventMsg)(int, int, event_assertion_type_t);
 #define HOTSWAP_BACKEND_PWR_SHUTDOWN_MASK   (1 << HOTSWAP_EVENT_BACKEND_SHUTDOWN)
 
 // sensor-specific (6f), FPGA config sensor (OEM sensor type 0xc0) offsets
-#define FPGACFGEV_LOAD_DONE                            (0)
-#define FPGACFGEV_FPGA_FIRMWARE                        (1)
+#define FPGACFGEV_UNUSED_RESERVED1                     (0)
+#define FPGACFGEV_UNUSED_RESERVED2                     (1)
 #define FPGACFGEV_SPI_DETECT0                          (2)
 #define FPGACFGEV_REQCFG0                              (3)
 #define FPGACFGEV_CFGRDY0                              (4)
@@ -312,8 +312,6 @@ typedef void(*pSendEventMsg)(int, int, event_assertion_type_t);
 #define FPGACFGEV_SPI_DETECT2_MASK                     (1 << FPGACFGEV_SPI_DETECT2)
 #define FPGACFGEV_REQCFG2_MASK                         (1 << FPGACFGEV_REQCFG2)
 #define FPGACFGEV_CFGRDY2_MASK                         (1 << FPGACFGEV_CFGRDY2)
-
-
 
 // bit masks for sensor event control message 
 #define SENSOREV_MSG_CTL_ENABLE_ALL_EVENTS_MASK        (0x80)

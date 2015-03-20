@@ -28,7 +28,7 @@
 #define PYLDMGREV_PAYLD_PWR_ON_DETECT     (11)        // Payload Power (+12) on detected (above lower non-critical)
 #define PYLDMGREV_PAYLD_PWR_OFF_DETECT    (12)        // Payload Power (+12) off detected (below 10% of nominal)
 #define PYLDMGREV_FPGA_AUTOCONFIG_SVC     (14)        // Autoconfig service event
-#define PYLDMGREV_FPGA_LOAD_DONE          (15)        // FPGA Load Done event detected
+#define PYLDMGREV_BACKEND_PWR_ON_DETECT   (15)        // Backend power-up cycle completed
 // RTC
 #define RTC_1SEC_EVENT                    (13)        // Value change detected on RTC
 

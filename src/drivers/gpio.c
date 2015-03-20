@@ -184,7 +184,7 @@ The following pins use peripheral mux function A on Port A (0)
       gpio_clr_gpio_pin(_FSIO_SCANSLV);
       gpio_clr_gpio_pin(_FPGA_CPU_RST);
       gpio_clr_gpio_pin(_FPGA_PROGB);
-      gpio_clr_gpio_pin(FPGA_DONE);
+      gpio_clr_gpio_pin(_FPGA_DONE);
       gpio_clr_gpio_pin(_FPGA_REQ_IN);
       gpio_clr_gpio_pin(_FSIO_SS0);
       gpio_clr_gpio_pin(FSIO_SCK);
@@ -220,7 +220,7 @@ The following pins use peripheral mux function A on Port A (0)
     gpio_clr_gpio_pin(_FSIO_SCANSLV);
     gpio_clr_gpio_pin(_FPGA_CPU_RST);
     gpio_clr_gpio_pin(_FPGA_PROGB);
-    gpio_clr_gpio_pin(FPGA_DONE);
+    gpio_clr_gpio_pin(_FPGA_DONE);
     gpio_clr_gpio_pin(_FPGA_REQ_IN);
     gpio_clr_gpio_pin(_FSIO_SS0);
     gpio_clr_gpio_pin(FSIO_SCK);
@@ -243,7 +243,7 @@ The following pins use peripheral mux function A on Port A (0)
   GPIO.port[0].puers = (1 << EEP_MISO) | (1 << EEP_MOSI);
 
 
-  mask = ((1 << (PWRGOOD-32)) | (1 << (FPGA_DONE-32)) | (1 << (_ADC_SS0-32)) | (1 << (ADC_SCK-32)) | (1 << (ADC_MISO-32)) | (1 << (ADC_MOSI-32)) |
+  mask = ((1 << (PWRGOOD-32)) | (1 << (_FPGA_DONE-32)) | (1 << (_ADC_SS0-32)) | (1 << (ADC_SCK-32)) | (1 << (ADC_MISO-32)) | (1 << (ADC_MOSI-32)) |
     (1 << (_FSIO_SCANSLV-32)) | (1 << (_GP_LED0-32)) | (1 << (_IPMI_LED1Y-32)) | (1 << (_GP_LED2-32)) | (1 << (_FPGA_CPU_RST-32)) | (1 << (_FPGA_PROGB-32)) | (1 < (_FPGA_REQ_IN-32)));
   GPIO.port[1].gpers = mask;            // set as GPIO pins
   GPIO.port[1].oderc = mask;            // turn off output drivers
@@ -259,6 +259,7 @@ The following pins use peripheral mux function A on Port A (0)
   gpio_clr_gpio_pin(ADC_MOSI);
 
   // check reset source to update the reset counter
+  TIMESTATREC.lastrsttime = 0;
   if (AVR32_PM.RCAUSE.wdt)
     // bump reset counter
     TIMESTATREC.reset_cnt++;

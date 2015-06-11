@@ -9,11 +9,12 @@
 
 #include "pins.h"
 #include "utils.h"
+#include "CTP7_SPI_addrs.h"
+#include "rtc.h"
 #include "intc.h"
 #include "timer_callback.h"
 #include "fpgaspi.h"
 #include "gpio.h"
-#include "LEDdrivers.h"
 #include "nonvolatile.h"
 
 #define XFER_BLK_SIZE               (32)
@@ -23,6 +24,8 @@
 volatile avr32_spi_csr0_t* pCSR;         // pointer to chip select register
 unsigned char scanslv_detect_mask;
 int scanslv_detect_ctr;
+unsigned long spi_detect_fail2_ctr = 0;      // counter incremented every time the secondary SPI detect fails
+
 
 
 int scanslv_detect_timer_callback(event eventID, void* arg) {
@@ -101,6 +104,9 @@ unsigned char fpgaspi_slave_detect(void) {
   // _SS0 thorugh _SS3 pins are sampled.  A logic 0 indicates that a FPGA-slave is
   // attached to that port.  The SPI1 interface is then returned to SPI mode and the
   // routine returns a mask indicating the detected FPGA slaves.
+  unsigned char dbuf[PERIPH_VALIDATION_SPI_LEN];
+  unsigned char pbuf[PERIPH_VALIDATION_SPI_LEN];
+  int i1;
   gpio_scanslv_mode();
   scanslv_detect_ctr = 2;         // initialize isr counter
   scanslv_detect_mask = 0;        // clear detect mask
@@ -110,7 +116,63 @@ unsigned char fpgaspi_slave_detect(void) {
   if (gpio_get_pin_value(_FSIO_SS0) == 0)
     scanslv_detect_mask |= FPGA0_SPI_DETECT_MASK;
   gpio_spi1_mode();
-  return scanslv_detect_mask;
+
+  if (!scanslv_detect_mask)
+    // return zero detect mask, no slaves yet seen
+    return scanslv_detect_mask;
+
+  // New secondary check at 2.2b.  There are strange occurrences reported of CERN of cards that won't boot,
+  // apparently as a result of the slave detect issuing a positive signal too quickly.  When cards get in this
+  // configuration they tend to stay in it, even after short extraction cycles.  It is very difficult to reproduce,
+  // but cards appear to recover and boot normally once the non-recoverable event thresholds for the ZYNQ-based
+  // sensors are disabled.  
+  // This secondary check will add an additional qualifier on the slave detect logic.  The MMC will examine the
+  // top 4 byes of the memory and verify that they are zero.  Then it will write and verify an arbitrary pattern,
+  // then write back zeros.  If both verifies are successful, then the slave is detected.
+  // Note:  ZYNQ connected at Device ID 0
+
+  do {
+    if (!fpgaspi_data_read(0, &dbuf[0], PERIPH_VALIDATION_SPI_ADDR, PERIPH_VALIDATION_SPI_LEN))
+      // read failed for some reason
+      break;
+    // validate all zeroes
+    for (i1=0; i1<PERIPH_VALIDATION_SPI_LEN; i1++)
+      if (dbuf[i1])
+        break;         // nonzero value
+    // generate and write pattern buffer with dynamic values
+    pbuf[0] = AVR32_TC.channel[1].cv & 0xff;
+    pbuf[1] = TIMESTATREC.uptime & 0xff;
+    pbuf[2] = AVR32_TC.channel[0].cv & 0xff;
+    pbuf[3] = (get_rtc_value() >> 8) & 0xff;
+    for (i1=4; i1<PERIPH_VALIDATION_SPI_LEN; i1++)
+      pbuf[i1] = 0xff-i1;
+    // write pattern to test region of memory
+    if (!fpgaspi_data_write(0, &pbuf[0], PERIPH_VALIDATION_SPI_ADDR, PERIPH_VALIDATION_SPI_LEN))
+      // write failed for some reason
+      break;
+    // read pattern back
+    if (!fpgaspi_data_read(0, &dbuf[0], PERIPH_VALIDATION_SPI_ADDR, PERIPH_VALIDATION_SPI_LEN))
+      // read failed for some reason
+      break;
+    // verify dynamic pattern
+    for (i1=0; i1<PERIPH_VALIDATION_SPI_LEN; i1++)
+      if (dbuf[i1] != pbuf[i1])
+        break;         // nonzero value
+    // write back zeroes for next time
+    for (i1=0; i1<PERIPH_VALIDATION_SPI_LEN; i1++)
+      pbuf[i1] = 0;
+    if (!fpgaspi_data_write(0, &pbuf[0], PERIPH_VALIDATION_SPI_ADDR, PERIPH_VALIDATION_SPI_LEN))
+      // write failed for some reason
+      break;
+
+    return scanslv_detect_mask;
+
+  } while (0);
+
+  // fall here if loop fails via 'break' statement
+  spi_detect_fail2_ctr++;
+  return 0; 
+ 
 }
 
 
@@ -208,7 +270,6 @@ int fpgaspi_data_read(const unsigned char deviceID, unsigned char* prbuf, unsign
   readhaddr = (cursaddr >> 8) & 0xff;
   readladdr = cursaddr & 0xff;
   delayflag = 1;
-  // flash LED2 during config I/O
   while (1) {
     Disable_global_interrupt();
     // send read command and starting address
@@ -240,9 +301,9 @@ int fpgaspi_data_read(const unsigned char deviceID, unsigned char* prbuf, unsign
       rdata = AVR32_SPI1.rdr;
       *currptr++ = rdata;
     }
-  while (!AVR32_SPI1.SR.txempty);
-  rdata = AVR32_SPI1.rdr;
-  *currptr++ = rdata;
+    while (!AVR32_SPI1.SR.txempty);
+    rdata = AVR32_SPI1.rdr;
+    *currptr++ = rdata;
     Enable_global_interrupt();
     if (!remlen)
       break;              // no more bytes to write

@@ -14,6 +14,7 @@
 #include "swevent.h"
 #include "timer_callback.h"
 #include "ejecthandle.h"
+#include "CTP7_SPI_addrs.h"
 #include "adc.h"
 #include "rtc.h"
 #include "sio_usart.h"
@@ -2126,7 +2127,7 @@ void parse_CMS_cmds(const ipmb_msg_desc_t*preq, ipmb_msg_desc_t* prsp) {
         break;
       }
       // read MAC address from pre-defined address
-      saddr = (MAC_ADDRESS_UPPER_SPI_ADDR << 8) | MAC_ADDRESS_LOWER_SPI_ADDR;
+      saddr = MAC_ADDRESS_SPI_ADDR;
       if (!fpgaspi_data_read(deviceID, &MACbuf[0], saddr, 9)) {
         // problem with read
         IPMB_RS_CCODE(prsp->buf) = IPMI_RS_NODE_BUSY;
@@ -2216,7 +2217,7 @@ void parse_CMS_cmds(const ipmb_msg_desc_t*preq, ipmb_msg_desc_t* prsp) {
 
       // read IP address and subnet from pre-defined location in boot vector.  By definition CTP7 uses IPv4 addressing
       // use the MACbuf local variable as a handy stack buffer for the 8-byte read
-      saddr = (IP_ADDRESS_UPPER_SPI_ADDR << 8) | IP_ADDRESS_LOWER_SPI_ADDR;
+      saddr = IP_ADDRESS_SPI_ADDR;
       if (!fpgaspi_data_read(deviceID, &MACbuf[0], saddr, 12)) {
         // problem with read
         IPMB_RS_CCODE(prsp->buf) = IPMI_RS_NODE_BUSY;

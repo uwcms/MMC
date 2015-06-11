@@ -11,6 +11,7 @@
 #include "pins.h"
 #include "gpio.h"
 #include "utils.h"
+#include "CTP7_SPI_addrs.h"
 #include "nonvolatile.h"
 #include "adc.h"
 #include "ejecthandle.h"
@@ -1856,6 +1857,11 @@ void Process_Sensors(int sensor_update_flag) {
 			  break;
 		}
 
+    // generate sensor events
+    // Under normal conditions, only changes in the assertion and deassertion states require events.
+    // However at certain times, such as when the Carrier sends a SET_EVENT_RECEIVER command, the MMC is required to send
+    // a refresh of all assertion and deassertion events.  The sensor_update_flag argument to this function directs which
+    // handling method applies.
 	  if (sensor_update_flag) {
 	    // report events for all asserted states
       assertion_mask = pSD->cur_masked_comp & (pSD->pSDR->assertion_event_mask[LOWBYTE] | ((pSD->pSDR->assertion_event_mask[HIGHBYTE] & 0xf) << 8));
@@ -1918,28 +1924,6 @@ void update_sensor_discrete_state(int sensornum, int deassert_mask, int assert_m
   process_sensor_events(deassert, sensornum, deassertion_mask);
 }
 
-/*
-void update_hotswap_state_mask(int deassert_mask, int assert_mask) {
-	// function updates the hotswap sensor assertion states.  Deassertions are applied first, followed by
-	// assertions.  A hotswap event is generated for each set bit in the assertion mask.  If multiple bits
-	// are to be asserted, and the order of the hotswap event transmission is important, then they should be
-	// serialized into multiple calls.
-	sensor_data_entry_t* pSD = &SensorData[HOTSWAP_SENSOR];
-	int i1;
-	int mask;
-	
-	pSD->prev_masked_comp = pSD->cur_masked_comp;
-	pSD->cur_masked_comp &= ~deassert_mask;
-	pSD->cur_masked_comp |= assert_mask;
-	
-	for (i1=0; i1<= HOTSWAP_EVENT_BACKEND_SHUTDOWN; i1++) {
-		// send hotswap event for any new assertions
-		mask = 1<<i1;
-		if (mask & pSD->cur_masked_comp & (~pSD->prev_masked_comp))
-			pSD->send_event_function(i1, HOTSWAP_SENSOR, assert);
-	}
-}
-*/
 
 void send_threshold_sensor_event(int offsetnum, int sensornum, event_assertion_type_t evtype) {
   ipmb_msg_desc_t evtmsg;
@@ -1978,25 +1962,6 @@ void send_discrete_sensor_event(int offsetnum, int sensornum, event_assertion_ty
   ipmb_send_request(&evtmsg, NULL);
 }
 
-/*
-void send_hotswap_sensor_event(int offsetnum, int sensornum, event_assertion_type_t evtype) {
-  ipmb_msg_desc_t evtmsg;
-  ipmb_init_req_hdr(evtmsg.buf, ipmb_get_event_rcvr_ipmb_addr(), NETFN_SE, ipmb_get_event_rcvr_lun(), 0);
-
-  evtmsg.buf[5] = IPMICMD_SE_PLATFORM_EVENT;
-  evtmsg.buf[6] = 0x04;                                        // Event Message Revision = 0x04 (IPMI spec)
-  evtmsg.buf[7] = 0xf2;                                        // sensor type = module hot swap
-  evtmsg.buf[8] = sensornum & 0xff;                            // sensor number
-  if (evtype == assert)
-    evtmsg.buf[9] = 0x7f & SensorData[sensornum].pSDR->event_reading_type;   // bit 7=0 for assertion, event reading type should be 0x01 (threshold)
-  else
-    evtmsg.buf[9] = 0x80 | SensorData[sensornum].pSDR->event_reading_type;   // bit 7=1 for deassertion, event reading type should be 0x01 (threshold)
-	evtmsg.buf[10] = offsetnum & 0xf;                                   // offset value for asserted event
-  evtmsg.buf[11] = calc_ipmi_xsum(&evtmsg.buf[3], 8);          // message checksum
-  evtmsg.len = 12;
-  ipmb_send_request(&evtmsg, NULL);
-}
-*/
 
 int get_sensor_name_str(int SensorNum, char* pnamestr) {
 	// copies the sensor name string with null termination from the associated SDR into the storage location specified as
@@ -2061,8 +2026,6 @@ void payload_based_sensor_read(void) {
       if (PBSrecord.validmask & (1<<i1)) 
         // transfer this value from read buf to holding buf
         PBSrecord.pbsval[i1] = prdbuf->pbsval[i1];
-      else
-         
 
     // clear flags in MMC-SPI interface
     prdbuf->updateflag = 0;

@@ -339,8 +339,6 @@ typedef struct {
   unsigned short SDRreservationID;
 } SDR_state_record_t;
 
-#define PBS_RECORD_SPI_ADDRESS        (0x0080)
-#define PBS_RECORD_SPI_LENGTH         (10)
 typedef struct {
   unsigned char updateflag;           // set to 1 by ZYNQ after new values are available for reading, cleared to zero by MMC after reading them
   unsigned char validmask;            // bit mask for whether the sensor readings in the subsequent bytes are valid or not.  Bit x to assert val[x] is valid

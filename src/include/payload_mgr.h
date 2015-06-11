@@ -123,6 +123,7 @@ typedef struct {
   unsigned short quiesce_timer2;                    // second stage timer for quiesce (max remaining delay to forced quiesced state)
 	unsigned short payload_startup_timer;             // timer for holding off sensors during startup of payload power
 	unsigned short backend_startup_timer;             // timer for holding off sensors & sequencing staged enables during startup of backend power
+  unsigned short sec_util_timer;                   // timer that sends event every 1 second for utility purposes
 	unsigned char backend_cur_stage;                  // stage index for back end power up -- set to 0xff when power-up complete
 	unsigned long backend_cur_timer;                  // timer used after pin change in backend power sequence
 	unsigned long backend_cur_mask;                   // current power enable (port B mapped) mask in effect

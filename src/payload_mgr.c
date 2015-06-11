@@ -13,6 +13,7 @@
 #include "pwrmgr.h"
 #include "gpio.h"
 #include "utils.h"
+#include "CTP7_SPI_addrs.h"
 #include "sio_usart.h"
 #include "twidriver.h"
 #include "ejecthandle.h"
@@ -38,6 +39,7 @@
 #define QUIESCE_HOLDOFF_DELAY_TICKS   (20)                  // minimum holdoff from handle pull to reporting quiesced hotswap event, 100ms ticks
 #define MONITOR_STARTUP_TICKS         (10)                  // 1 second delay for non-recoverable value monitoring
 #define AUTOCONFIG_POLL_TICKS         (15)                  // 1.5 second delay for checking autoconfig port
+#define ONESEC_UTIL_TIMER_TICKS       (10)                  // 1 second utility timer ticks
 
 #define PAYLDMGR_PWRON_ISR_DETECT               (1<<0)
 #define PAYLDMGR_PWROFF_ISR_DETECT              (1<<1)
@@ -46,10 +48,8 @@
 #define PAYLDMGR_BKEND_SEQUENCE_COMPLETE        (1<<4)
 #define PAYLDMGR_QUIESCE_TIMER_TICK             (1<<5)
 #define PAYLDMGR_WAITAUX_ISR_DETECT             (1<<6)
+#define PAYLDMGR_1SEC_UTIL_ISR_DETECT           (1<<7)
 
-// ZYNQ SPI memory addresses for Quiesce Interlock
-#define PAYLDMGR_MMC_SPI_QUIESCE_CMD_FLAG_ADDR       (0x0f00)
-#define PAYLDMGR_MMC_SPI_QUIESCED_FLAG_ADDR          (0x0f01)
 #define QUIESCE_SIGNAL_VAL                      (0x01)
 #define QUIESCE_CLEAR_VAL                       (0x00)
 
@@ -372,6 +372,17 @@ void pyldmgr_service(void) {
     Enable_global_interrupt();
     quiesce_monitor();
 	}		
+
+  // check one second utility timer
+  if (isr_event_mask & PAYLDMGR_1SEC_UTIL_ISR_DETECT) {
+    Disable_global_interrupt();
+    isr_event_mask &= ~PAYLDMGR_1SEC_UTIL_ISR_DETECT;
+    Enable_global_interrupt();
+    if (pyldmgr_get_backend_power_status() == power_off)
+      // turn off yellow LED.  This is to clear up condition where fault occurred during Linux boot, back end power
+      // disabled before Linux can turn off the LED through the SPI path.
+      program_LED(IPMI_LED1Y_TBL_IDX, Local_Control, &LED_Off_Activity);
+  }
 	
   // check/update status of alarms
   check_alarm_status();
@@ -606,15 +617,6 @@ int payload_power_on_callback(event eventID, void* arg) {
   program_LED(IPMI_LED1Y_TBL_IDX, Local_Control, &LED_Off_Activity);
   program_LED(IPMI_LED2_TBL_IDX, Local_Control, &LED_Off_Activity);
 
-/* Disabled here, 29-July-14.  This function is applied after back end power is enabled
-  // apply MGT Voltage Settings (both setpoint and trim values)
-  apply_voltage_settings_to_pins(pyldmgr_state.settings.MGT_Vreg.bits.left1p0_set, MGT1P0L_VSET);
-  apply_voltage_settings_to_pins(pyldmgr_state.settings.MGT_Vreg.bits.right1p0_set, MGT1P0R_VSET);
-  apply_trim_settings_to_pins(pyldmgr_state.settings.MGT_Vreg.bits.left1p0_margin, MGT1P0L_MSEL, MGT1P0L_MTOL);
-  apply_trim_settings_to_pins(pyldmgr_state.settings.MGT_Vreg.bits.right1p0_margin, MGT1P0R_MSEL, MGT1P0R_MTOL);
-  apply_trim_settings_to_pins(pyldmgr_state.settings.MGT_Vreg.bits.left1p2_margin, MGT1P2L_MSEL, MGT1P2L_MTOL);
-  apply_trim_settings_to_pins(pyldmgr_state.settings.MGT_Vreg.bits.right1p2_margin, MGT1P2R_MSEL, MGT1P2R_MTOL);
-*/
   return 1;
 }
 
@@ -801,6 +803,15 @@ int pyldmgr_100ms_timer_callback(event eventID, void* arg) {
     pyldmgr_state.ctl.autoconfig_poll_timer--;
     if (!pyldmgr_state.ctl.autoconfig_poll_timer)
       isr_event_mask |= PAYLDMGR_AUTOCONFIG_TIMER_FLAG;
+  }
+
+  // examine 1 sec util timer
+  if (pyldmgr_state.ctl.sec_util_timer) {
+    pyldmgr_state.ctl.sec_util_timer--;
+    if (!pyldmgr_state.ctl.sec_util_timer) {
+      isr_event_mask |= PAYLDMGR_1SEC_UTIL_ISR_DETECT;
+      pyldmgr_state.ctl.sec_util_timer = ONESEC_UTIL_TIMER_TICKS;
+    }
   }
   return 1;
 }

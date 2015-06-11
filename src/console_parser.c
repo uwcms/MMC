@@ -15,6 +15,7 @@
 #include "swevent.h"
 #include "timer_callback.h"
 #include "ejecthandle.h"
+#include "fpgaspi.h"
 #include "adc.h"
 #include "rtc.h"
 #include "twidriver.h"
@@ -65,6 +66,7 @@ typedef struct {
 #define WD_CMD_DISPCB                 (42)
 #define WD_CMD_VERSION                (43)
 #define WD_CMD_EVTUPDATE              (44)
+#define WD_CMD_SPIF2CNT               (45)
 
 // Word IDs for filter options
 #define WD_FILT_IPMIEVT               (5)
@@ -115,6 +117,7 @@ const WordListEntrytype Cmd_Wd_List[] = {
   {WD_CMD_DISPCB, "dispcb"},
   {WD_CMD_VERSION, "version"},
   {WD_CMD_EVTUPDATE, "evtrefresh"},
+  {WD_CMD_SPIF2CNT, "spif2c"},
   {WD_EOLIST, ""} };
 
 const WordListEntrytype Filteropt_Wd_List[] = {
@@ -466,6 +469,10 @@ void parse_cmd(const char*const plinebuf, const char** plbpos, const char* pcmdw
       update_sensor_events();
       break;
 
+    case WD_CMD_SPIF2CNT:
+      sprintf(spbuf, "SPI detect secondary check fail count:  %li\n", spi_detect_fail2_ctr);
+      sio_putstr(spbuf);
+      break;
 
     default:
       // should never come here since unrecognized words caught in match phase

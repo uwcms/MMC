@@ -192,58 +192,6 @@ static void usart_int_handler(void)
         }
     }
 
-/*
-// old if-then-else-if driven code for processing rx characters, replaced with switch
-    if (rxchar == '\n' || rxchar == '\r') {
-      // newline character
-      enqueue_rx_char('\n');
-      sio_msg_ctr++;
-      if (echo_rx_char) {
-        enqueue_tx_char('\r');		// add a return
-        enqueue_tx_char('\n');
-        USART->ier = AVR32_USART_IER_TXRDY_MASK;
-      }
-    }
-    else if ((rxchar == BACKSPACE) || (rxchar == DELETE)) {
-      // process backspace character
-      if (!rx_ctr) {
-        // rx queue empty, nothing to erase
-        if (echo_rx_char)
-      	  enqueue_tx_char(BELL);
-        USART->ier = AVR32_USART_IER_TXRDY_MASK;
-  	  }
-      else {
-  	    // rx queue not empty, but only erase up to \n char
-  	    tmp_wr_idx = rx_wr_idx ? rx_wr_idx-1 : RX_BUFFER_SIZE-1;
-        if (rx_buffer[tmp_wr_idx] == '\n') {
-          // last enqueued  char was newline
-          if (echo_rx_char) {
-            enqueue_tx_char(BELL);
-            USART->ier = AVR32_USART_IER_TXRDY_MASK;
-          }
-        }
-        else {
-          // erase last character
-          rx_ctr--;
-          rx_wr_idx = tmp_wr_idx;
-          if (echo_rx_char) {
-            enqueue_tx_char(BACKSPACE);
-            enqueue_tx_char(' ');
-            enqueue_tx_char(BACKSPACE);
-            USART->ier = AVR32_USART_IER_TXRDY_MASK;
-          }
-        }
-      }
-    }
-    else {
-      enqueue_rx_char((char) rxchar);
-      if (echo_rx_char) {
-        // echo char by placing in tx queue
-      	enqueue_tx_char((char) rxchar);
-        USART->ier = AVR32_USART_IER_TXRDY_MASK;
-      }
-    }
-*/
   }
   else if (usart_read_status == USART_RX_ERROR) {
     // usart read error--clear error and reset rx receiver
@@ -258,9 +206,7 @@ static void usart_int_handler(void)
   // transmit interrupt service
   if (txisready(USART) && (USART->imr & AVR32_USART_IMR_TXRDY_MASK)) {
     // transmitter is ready and the txready interrupt is enabled
-  CAPBUF2_SAVEPC;
     if (tx_ctr) {
-  CAPBUF2_SAVEPC;
       // there is another character to be sent
       // dequeue and transmit character
       txchar = tx_buffer[tx_rd_idx];
@@ -270,7 +216,6 @@ static void usart_int_handler(void)
       USART->thr = (txchar << AVR32_USART_THR_TXCHR_OFFSET) & AVR32_USART_THR_TXCHR_MASK;
     }
     else {
-  CAPBUF2_SAVEPC;
       // there are no more characters to send
       USART->idr = AVR32_USART_IDR_TXRDY_MASK;
     }

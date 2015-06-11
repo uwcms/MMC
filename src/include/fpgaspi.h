@@ -39,6 +39,8 @@
 #define FPGASPI_HFR_SETFLG            (0x02)
 #define FPGASPI_HFR_CLRFLG            (0x01)
 
+extern unsigned long spi_detect_fail2_ctr;
+
 // functions supported by fpga spi driver
 unsigned char fpgaspi_slave_detect(void);
 

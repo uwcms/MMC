@@ -103,15 +103,8 @@
 
 // cmds in CMS common NetFn (3c/3d)
 #define IPMICMD_CMS_GET_MAC_ADDRESS                  (0x01)
-#define MAC_ADDRESS_UPPER_SPI_ADDR                   (0x0f)
-#define MAC_ADDRESS_LOWER_SPI_ADDR                   (0x10)
-
 #define IPMICMD_CMS_GET_IP_ADDRESS                   (0x02)
-#define IP_ADDRESS_UPPER_SPI_ADDR                    (0x00)
-#define IP_ADDRESS_LOWER_SPI_ADDR                    (0x01)               // address in the configuration vector
-
 #define IPMICMD_CMS_SET_IP_ADDRESS                   (0x03)               // command reserved but not implemented 
-
 
 
 // response codes

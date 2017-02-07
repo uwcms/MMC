@@ -14,6 +14,8 @@
 #include "nonvolatile.h"
 #include "rtc.h"
 
+static int wddebug;
+
 int cap_buf_ena = 0;
 int watchdog_service_enable = 1;
 char timebuf[32];            // buffer for the time string
@@ -35,8 +37,15 @@ void Force_Watchdog_Reset(void) {
 }
 
 void Service_Watchdog(void) {
-  if (watchdog_service_enable)
+  if (watchdog_service_enable) {
     AVR32_WDT.clr = 0xffff;                // service watchdog
+	  wddebug = 0;
+  }
+  else {
+	  wddebug += 1;
+  }
+  if (wddebug == 20)
+    sio_putstr("WDT Service Disabled for 20 cycles, reset likely pending\n");
 }
 
 

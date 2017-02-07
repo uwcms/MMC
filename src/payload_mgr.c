@@ -628,15 +628,15 @@ int fast_output_timer_callback(event eventID, void* arg) {
 	// back end power enables should occur.
 	if ((!pyldmgr_state.settings.bkend_pwr_ena) || (pyldmgr_state.alarm.cur_alarm_level == fault) || (pyldmgr_get_payload_power_status() == power_off) ||
 	  (pyldmgr_state.ctl.cold_reset_timer)) {
-		// power enable and other outputs at should be at logic 0
-    set_MMC_pin_backend_off_state();
-    AVR32_PM.gplp[0] &= ~RSTCFG_BACKEND_HOT_MASK;           // make sure back end hot mask is clear;
+	  // power enable and other outputs at should be at logic 0
+      set_MMC_pin_backend_off_state();
+      AVR32_PM.gplp[0] &= ~RSTCFG_BACKEND_HOT_MASK;           // make sure back end hot mask is clear;
 	  pyldmgr_state.ctl.backend_cur_stage = 0;
 	  pyldmgr_state.ctl.backend_cur_timer = 0;                // reset back end state machine
 	}
 	else {
-		// back end enables should be on or in process of being turned on
-		if (pyldmgr_state.ctl.backend_cur_stage == 0xff) {
+	  // back end enables should be on or in process of being turned on
+	  if (pyldmgr_state.ctl.backend_cur_stage == 0xff) {
 		  // back end power-up complete
       AVR32_PM.gplp[0] |= RSTCFG_BACKEND_HOT_MASK;        // mark back end power hot
 		  return 1;
@@ -682,46 +682,46 @@ int pyldmgr_100ms_timer_callback(event eventID, void* arg) {
   
   // update payload power detect
   if (pyldmgr_state.settings.aux_12V_pwr_select) {
-	  // examine both payload and aux 12V comparators
+	// examine both payload and aux 12V comparators
     pyldmgr_state.payld_pwr[PWRCOMP_AUX_12V].prev_on_state = pyldmgr_state.payld_pwr[PWRCOMP_AUX_12V].cur_on_state;
     pyldmgr_state.payld_pwr[PWRCOMP_PAYLD_12V].prev_on_state = pyldmgr_state.payld_pwr[PWRCOMP_PAYLD_12V].cur_on_state;
-	  // update threshold flags
-	  if (SensorData[PAYLOAD_12V_SENSOR].readout_value >= pyldmgr_state.payld_pwr[PWRCOMP_PAYLD_12V].upper_thr)
-		  pyldmgr_state.payld_pwr[PWRCOMP_PAYLD_12V].cur_on_state = 1;
-		else {
+	// update threshold flags
+	if (SensorData[PAYLOAD_12V_SENSOR].readout_value >= pyldmgr_state.payld_pwr[PWRCOMP_PAYLD_12V].upper_thr)
+	  pyldmgr_state.payld_pwr[PWRCOMP_PAYLD_12V].cur_on_state = 1;
+	else {
       if (SensorData[PAYLOAD_12V_SENSOR].readout_value <= pyldmgr_state.payld_pwr[PWRCOMP_PAYLD_12V].lower_thr)
-		    pyldmgr_state.payld_pwr[PWRCOMP_PAYLD_12V].cur_on_state = 0;
-		}
-	  if (SensorData[AUX_12V_SENSOR].readout_value >= pyldmgr_state.payld_pwr[PWRCOMP_AUX_12V].upper_thr)
-		  pyldmgr_state.payld_pwr[PWRCOMP_AUX_12V].cur_on_state = 1;
-		else {
+		pyldmgr_state.payld_pwr[PWRCOMP_PAYLD_12V].cur_on_state = 0;
+	}
+	if (SensorData[AUX_12V_SENSOR].readout_value >= pyldmgr_state.payld_pwr[PWRCOMP_AUX_12V].upper_thr)
+	  pyldmgr_state.payld_pwr[PWRCOMP_AUX_12V].cur_on_state = 1;
+	else {
       if (SensorData[AUX_12V_SENSOR].readout_value <= pyldmgr_state.payld_pwr[PWRCOMP_AUX_12V].lower_thr)
-		    pyldmgr_state.payld_pwr[PWRCOMP_AUX_12V].cur_on_state = 0;
-		}
-		// check combined state transitions to see if events should be generated
-		// A power-on event is generated when both supplies are together above threshold, and a power-off event is generated
-		// when either falls below threshold
-		if ((pyldmgr_state.payld_pwr[PWRCOMP_PAYLD_12V].cur_on_state && pyldmgr_state.payld_pwr[PWRCOMP_AUX_12V].cur_on_state) &&
-		  (!(pyldmgr_state.payld_pwr[PWRCOMP_PAYLD_12V].prev_on_state && pyldmgr_state.payld_pwr[PWRCOMP_AUX_12V].prev_on_state))) {
+		pyldmgr_state.payld_pwr[PWRCOMP_AUX_12V].cur_on_state = 0;
+	}
+	// check combined state transitions to see if events should be generated
+	// A power-on event is generated when both supplies are together above threshold, and a power-off event is generated
+	// when either falls below threshold
+	if ((pyldmgr_state.payld_pwr[PWRCOMP_PAYLD_12V].cur_on_state && pyldmgr_state.payld_pwr[PWRCOMP_AUX_12V].cur_on_state) &&
+	  (!(pyldmgr_state.payld_pwr[PWRCOMP_PAYLD_12V].prev_on_state && pyldmgr_state.payld_pwr[PWRCOMP_AUX_12V].prev_on_state))) {
       isr_event_mask |= PAYLDMGR_PWRON_ISR_DETECT;
-		}    
-	  else {
-		  if (!(pyldmgr_state.payld_pwr[PWRCOMP_PAYLD_12V].cur_on_state && pyldmgr_state.payld_pwr[PWRCOMP_AUX_12V].cur_on_state) &&
-		    (pyldmgr_state.payld_pwr[PWRCOMP_PAYLD_12V].prev_on_state && pyldmgr_state.payld_pwr[PWRCOMP_AUX_12V].prev_on_state))
+	}    
+    else {
+	  if (!(pyldmgr_state.payld_pwr[PWRCOMP_PAYLD_12V].cur_on_state && pyldmgr_state.payld_pwr[PWRCOMP_AUX_12V].cur_on_state) &&
+		(pyldmgr_state.payld_pwr[PWRCOMP_PAYLD_12V].prev_on_state && pyldmgr_state.payld_pwr[PWRCOMP_AUX_12V].prev_on_state))
         isr_event_mask |= PAYLDMGR_PWROFF_ISR_DETECT;
-	  }
+	}
     // check for condition where payload has arrived not but the aux is not there
     if (pyldmgr_state.payld_pwr[PWRCOMP_PAYLD_12V].cur_on_state && (!pyldmgr_state.payld_pwr[PWRCOMP_PAYLD_12V].prev_on_state) &&
       (!pyldmgr_state.payld_pwr[PWRCOMP_AUX_12V].cur_on_state))
       isr_event_mask |= PAYLDMGR_WAITAUX_ISR_DETECT;
 
-	  // finally, update running state variable for payload power status
-	  if (pyldmgr_state.payld_pwr[PWRCOMP_PAYLD_12V].cur_on_state && pyldmgr_state.payld_pwr[PWRCOMP_AUX_12V].cur_on_state) {
-	    pyldmgr_state.payld_pwr_cur_state = power_on;
+	// finally, update running state variable for payload power status
+	if (pyldmgr_state.payld_pwr[PWRCOMP_PAYLD_12V].cur_on_state && pyldmgr_state.payld_pwr[PWRCOMP_AUX_12V].cur_on_state) {
+	  pyldmgr_state.payld_pwr_cur_state = power_on;
       AVR32_PM.gplp[0] |= RSTCFG_PAYLOAD_HOT_MASK;            // mark payload as hot
     }
-		else {
-		  pyldmgr_state.payld_pwr_cur_state = power_off;
+	else {
+	  pyldmgr_state.payld_pwr_cur_state = power_off;
       AVR32_PM.gplp[0] &= ~RSTCFG_PAYLOAD_HOT_MASK;           // mark payload as not hot
     }
   }

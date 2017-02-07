@@ -14,6 +14,10 @@
 
 int spi1_lock_flag = SPI1_UNLOCKED_VAL;
 
+void spi1_init(void) {
+  spi1_lock_flag = SPI1_UNLOCKED_VAL;
+}
+
 
 int spi1_is_locked(void) {
 	return spi1_lock_flag;

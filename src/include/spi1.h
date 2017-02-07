@@ -8,6 +8,8 @@
 #ifndef SPI1_H_
 #define SPI1_H_
 
+void spi1_init(void);
+
 int spi1_is_locked(void);
 
 int spi1_lock(void);

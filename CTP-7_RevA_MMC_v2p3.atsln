@@ -1,7 +1,9 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 11.00
+Microsoft Visual Studio Solution File, Format Version 12.00
 # Atmel Studio Solution File, Format Version 11.00
-Project("{54F91283-7BC4-4236-8FF9-10F437C3AD48}") = "CTP-7_RevA_MMC_v2p2", "CTP-7_RevA_MMC_v2p2.cproj", "{D4650C97-D5A7-4FBB-95CF-ED441A989A6E}"
+VisualStudioVersion = 14.0.23107.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{54F91283-7BC4-4236-8FF9-10F437C3AD48}") = "CTP-7_RevA_MMC_v2p3", "CTP-7_RevA_MMC_v2p3.cproj", "{D4650C97-D5A7-4FBB-95CF-ED441A989A6E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

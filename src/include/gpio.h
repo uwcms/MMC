@@ -16,6 +16,8 @@ void gpio_spi1_mode(void);
 
 void gpio_spi1_bitbang(void);
 
+inline int gpio_get_spi1_mode(void);
+
 void gpio_init();
 
 void gpio_set_gpio_pin(unsigned int pin);

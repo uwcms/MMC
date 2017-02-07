@@ -7,6 +7,7 @@
 
 #include <avr32/io.h>
 #include <stdio.h>
+#include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
@@ -27,6 +28,9 @@
 #include "sensor_svc.h"
 #include "nonvolatile.h"
 #include "fault_log.h"
+
+// debug 2.3
+#include "ejecthandle.h"
 
 #define iswhite(c)        ((c <= 0x20) || (c>0x7f))
 #define CONSOLEWDMAXLEN       (20)
@@ -67,6 +71,10 @@ typedef struct {
 #define WD_CMD_VERSION                (43)
 #define WD_CMD_EVTUPDATE              (44)
 #define WD_CMD_SPIF2CNT               (45)
+#define WD_CMD_OHO                    (46)
+#define WD_CMD_OHI                    (47)
+#define WD_CMD_OHR                    (48)
+#define WD_CMD_DISPSENSREC            (49)
 
 // Word IDs for filter options
 #define WD_FILT_IPMIEVT               (5)
@@ -88,6 +96,7 @@ typedef struct {
 #define WD_SETVOLT_HIGH               (35)
 #define WD_SETVOLT_LOW                (36)
 
+
 const WordListEntrytype Cmd_Wd_List[] = {
   {WD_CMD_HELP, "help"},
   {WD_CMD_QMARK, "?"},
@@ -98,13 +107,13 @@ const WordListEntrytype Cmd_Wd_List[] = {
   {WD_CMD_CRESET, "creset"},
   {WD_CMD_MRESET, "mreset"},
   {WD_CMD_EEPERASE, "eeperase"},
-	{WD_CMD_SENSREAD, "sensread"},	
-	{WD_CMD_IPMBSTATS, "ipmbstats"},	
-	{WD_CMD_SLOTID, "slotid"},	
-	{WD_CMD_PINSTATE, "pinstate"},	
-	{WD_CMD_TESTEVT, "testevt"},
-	{WD_CMD_DISPFL, "dispfl"},  
-	{WD_CMD_CLRFL, "clrfl"}, 
+  {WD_CMD_SENSREAD, "sensread"},	
+  {WD_CMD_IPMBSTATS, "ipmbstats"},	
+  {WD_CMD_SLOTID, "slotid"},	
+  {WD_CMD_PINSTATE, "pinstate"},	
+  {WD_CMD_TESTEVT, "testevt"},
+  {WD_CMD_DISPFL, "dispfl"},  
+  {WD_CMD_CLRFL, "clrfl"}, 
   {WD_CMD_SETTRIM, "settrim"},
   {WD_CMD_GETTRIM, "gettrim"},
   {WD_CMD_SETV, "setv"},
@@ -118,6 +127,10 @@ const WordListEntrytype Cmd_Wd_List[] = {
   {WD_CMD_VERSION, "version"},
   {WD_CMD_EVTUPDATE, "evtrefresh"},
   {WD_CMD_SPIF2CNT, "spif2c"},
+  {WD_CMD_OHO, "ohout"},
+  {WD_CMD_OHI, "ohin"},
+  {WD_CMD_OHR, "ohrel"},
+	{WD_CMD_DISPSENSREC, "sensrec"},  
   {WD_EOLIST, ""} };
 
 const WordListEntrytype Filteropt_Wd_List[] = {
@@ -162,6 +175,7 @@ void get_mgt_vout(const char*const plinebuf, const char** plbpos, const int cmdw
 void display_mgt_trim_settings(const const MGT_Vreg_settings_t*const pvrs);
 void change_paux(const char*const plinebuf, const char** plbpos, const int cmdwdID, const int paux_enable);
 void etimestr(char* sbuf, unsigned int timesec);
+void display_sensor_settings_rec(void);
 
 
 void console_chk_cmd(void) {
@@ -260,33 +274,34 @@ void parse_cmd(const char*const plinebuf, const char** plbpos, const char* pcmdw
     case WD_CMD_QMARK:
       sio_putstr("Console Commands:\n");
       sio_putstr("  help or ? - display this message\n");
-		  sio_putstr("  clrfl - clears the fault log\n");
+	  sio_putstr("  clrfl - clears the fault log\n");
       sio_putstr("  clrmmask <arglist> - disables console output for specified message types\n");
-	    sio_putstr("  creset - issues cold reset to payload (cycles back end power)\n");
+      sio_putstr("  creset - issues cold reset to payload (cycles back end power)\n");
       sio_putstr("  dispaux - disable 12V auxiliary power front panel input\n");
-		  sio_putstr("  dispfl - displays current contents of fault log\n");
+	  sio_putstr("  dispfl - displays current contents of fault log\n");
       sio_putstr("  dispcb - displays capture buffer\n");
-	    sio_putstr("  eeperase - erases EEPROM (will auto-format at next MMC startup)\n");
+	  sio_putstr("  eeperase - erases EEPROM (will auto-format at next MMC startup)\n");
       sio_putstr("  enapaux - enable 12V auxiliary power front panel input\n");
       sio_putstr("  evtrefresh - retransmit asserted events to IPMI event receiver\n");
       sio_putstr("  getmmask - displays the current message filter setting\n");
       sio_putstr("  getpaux - displays the current auxilliary power enable/disable setting\n");
-		  sio_putstr("  gettrim - returns the trim level for MGT voltage regulators\n");
-		  sio_putstr("  getv - returns the output level for MGT 1.0V regulators\n");
-		  sio_putstr("  ipmbstats - display IPMB statistics\n");
-	    sio_putstr("  mreset - resets MMC controller\n");
-		  sio_putstr("  pinstate - displays the current state on a microcontroller pin\n");
-		  sio_putstr("  sensread - returns the value of a sensor\n");
+	  sio_putstr("  gettrim - returns the trim level for MGT voltage regulators\n");
+	  sio_putstr("  getv - returns the output level for MGT 1.0V regulators\n");
+	  sio_putstr("  ipmbstats - display IPMB statistics\n");
+      sio_putstr("  mreset - resets MMC controller\n");
+	  sio_putstr("  pinstate - displays the current state on a microcontroller pin\n");
+	  sio_putstr("  sensread - returns the value of a sensor\n");
+    sio_putstr("  sensrec - displays the sensor record/checksum area\n");
       sio_putstr("  setmmask <arglist> - enables console output for specified message types\n");
-		  sio_putstr("  settrim - sets the trim level for MGT voltage regulators\n");
-		  sio_putstr("  setv - sets the output level for MGT 1.0V regulators\n");
+	  sio_putstr("  settrim - sets the trim level for MGT voltage regulators\n");
+	  sio_putstr("  setv - sets the output level for MGT 1.0V regulators\n");
       sio_putstr("  siorst - reset USART buffers\n");
-		  sio_putstr("  slotid - displays Slot ID and IPMB-L address\n");
-		  sio_putstr("  testevt - generate IPMI sensor test event\n");
+	  sio_putstr("  slotid - displays Slot ID and IPMB-L address\n");
+	  sio_putstr("  testevt - generate IPMI sensor test event\n");
       sio_putstr("  timestats - display the MMC time statistics\n");
       sio_putstr("  version - display the MMC version\n");
-	    sio_putstr("  wreset - issues warm (CPU) reset to payload\n");
-	    sio_putstr("\n");
+      sio_putstr("  wreset - issues warm (CPU) reset to payload\n");
+      sio_putstr("\n");
       break; 
     
     case WD_CMD_SETMSGMASK:
@@ -473,6 +488,27 @@ void parse_cmd(const char*const plinebuf, const char** plbpos, const char* pcmdw
       sprintf(spbuf, "SPI detect secondary check fail count:  %li\n", spi_detect_fail2_ctr);
       sio_putstr(spbuf);
       break;
+
+
+
+    case WD_CMD_OHO:
+	  sio_putstr("handle override OUT\n");
+	  set_handle_position_override(out_open, 0);
+	  break;
+	  
+	case WD_CMD_OHI:
+	  sio_putstr("handle override IN\n");
+	  set_handle_position_override(in_closed, 0);
+	  break;
+	
+	case WD_CMD_OHR:
+	  sio_putstr("handle override released\n");
+	  clear_handle_position_override();
+	  break;
+
+  case WD_CMD_DISPSENSREC:
+    display_sensor_settings_rec();
+    break;
 
     default:
       // should never come here since unrecognized words caught in match phase
@@ -1103,5 +1139,33 @@ void etimestr(char* sbuf, unsigned int timesec) {
   seconds = remainder - minutes*60;
 
   sprintf(sbuf, "%li days %02li:%02li:%02li", days, hours, minutes, seconds); 
+}
+
+void display_sensor_settings_rec(void) {
+  // read and display the sensor settings record ID area
+  int i;
+  sensor_settings_record_ID_t settingsrec;
+
+  // fill record from EEPROM
+  while (eepspi_chk_write_in_progress()) Service_Watchdog();
+  eepspi_read((unsigned char*) &(settingsrec), SENSOR_SETTINGS_BYTE_OFFSET, sizeof(sensor_settings_record_ID_t));
+  sio_putstr("Record Name Field:\n  Hex:  ");
+  for (i=0; i<SENSOR_SETTING_NAMELEN; i++) {
+    sprintf(spbuf,"%02X ", (unsigned char) settingsrec.recname[i]);
+    sio_putstr(spbuf);
+  }
+  sio_putstr("\n  String:  \"");
+  for (i=0; i<SENSOR_SETTING_NAMELEN; i++) {
+    if (isprint(settingsrec.recname[i]))
+      sio_putc(settingsrec.recname[i]);
+    else
+      break;
+  } 
+  sio_putstr("\"\nChecksum Field (Hex):  ");
+  for (i=0; i<4; i++) {
+    sprintf(spbuf, "%02X ", settingsrec.xsum[i]);
+    sio_putstr(spbuf);
+  } 
+  sio_putstr("\n\n");
 }
 

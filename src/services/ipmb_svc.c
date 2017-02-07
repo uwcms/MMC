@@ -22,7 +22,7 @@
 #include "gpio.h"
 
 // request message table
-#define REQ_MSG_TBL_SIZE			(16)			// size of request message table -- make bigger in case more sensors crap out?
+#define REQ_MSG_TBL_SIZE			(64)			// size of request message table -- make bigger in case more sensors crap out?
 #define REQ_MSG_TIMEOUT_LIMIT		(3)		// 100 ms ticks until message times out
 #define REQ_MSG_XMT_TRY_LIMIT		(5)			// max number of times message transmitted until we give up
 

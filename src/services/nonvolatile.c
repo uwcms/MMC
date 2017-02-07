@@ -17,10 +17,13 @@ void nonvol_init(void) {
   // checks the first byte of the eeprom.  If it is 0xff, chip is considered erased, and
   // a default image is written to the eeprom
   unsigned char buf[END_OF_FRU_AREA_OFFSET];
+  unsigned char buf2[SENSOR_SETTINGS_AREA_SIZE];
   hardware_info_area_t* pHWarea = (hardware_info_area_t*) &buf[HW_HEADER_BYTE_OFFSET];
   App_Device_ID_record_t* pAppDevID = (App_Device_ID_record_t*) &buf[APP_DEV_ID_BYTE_OFFSET];
   FRU_area_common_header_t* pFRUhdr = (FRU_area_common_header_t*) &buf[COMMON_HEADER_BYTE_OFFSET];
   module_current_req_record_t* pcurrec = (module_current_req_record_t*) &buf[MULTIRECORD_AREA_BYTE_OFFSET];
+  sensor_settings_record_ID_t* psensrecID = (sensor_settings_record_ID_t*) &buf2[0];
+  
   int i;
 
   while (eepspi_chk_write_in_progress());     // wait for EEPROM to be available
@@ -74,15 +77,29 @@ void nonvol_init(void) {
   if (!eepspi_read((unsigned char*) &GPparambuf, GP_PARAM_AREA_BYTE_OFFSET, sizeof(GP_param_record_t)))
     // read not successful
     return;						// abort formatting procedure
-  if (GPparambuf.key != 0xff) {
-	  // area already formatted
-	  return;
+  if (GPparambuf.key == 0xff) {
+    sio_putstr("Writing default GP param settings....\n");
+    memset((void *) &GPparambuf, 0, sizeof(GPparambuf));            // zero out record
+    GPparambuf.sio_filtermask =  TXTFILT_EVENTS | /*TXTFILT_IPMI_STD_REQ |  TXTFILT_IPIM_CUSTOM_REQ | 
+      TXTFILT_DBG_SUMMARY | TXTFILT_DBG_DETAIL |*/  TXTFILT_INFO;              // things turned on by default
+    eepspi_write((unsigned char*) &GPparambuf, GP_PARAM_AREA_BYTE_OFFSET, sizeof(GP_param_record_t));
   }
-  sio_putstr("Writing default GP param settings....\n");
-  memset((void *) &GPparambuf, 0, sizeof(GPparambuf));            // zero out record
-  GPparambuf.sio_filtermask =  TXTFILT_EVENTS | /*TXTFILT_IPMI_STD_REQ |  TXTFILT_IPIM_CUSTOM_REQ | 
-    TXTFILT_DBG_SUMMARY | TXTFILT_DBG_DETAIL |*/  TXTFILT_INFO;              // things turned on by default
-  eepspi_write((unsigned char*) &GPparambuf, GP_PARAM_AREA_BYTE_OFFSET, sizeof(GP_param_record_t));
+  
+  // New at 2.3, check the Sensor Settings ID Record area, and initialize if empty
+  while (eepspi_chk_write_in_progress());     // wait for EEPROM to be available
+  if (!eepspi_read((unsigned char*) buf2, SENSOR_SETTINGS_BYTE_OFFSET, SENSOR_SETTINGS_AREA_SIZE))
+    // read not successful
+    return;						// abort formatting procedure
+  if (buf2[0] == 0xff) {
+    // sensor settings record area needs initialization
+    sio_putstr("Writing default sensor settings record ID....\n");
+    strcpy(psensrecID->recname, "Default Record ID");
+    psensrecID->xsum[0] = 0;
+    psensrecID->xsum[1] = 0;
+    psensrecID->xsum[2] = 0;
+    psensrecID->xsum[3] = 0;
+    eepspi_write((unsigned char*) psensrecID, SENSOR_SETTINGS_BYTE_OFFSET, SENSOR_SETTINGS_AREA_SIZE);
+  }
 }
 
 

@@ -91,8 +91,14 @@ typedef struct {
 	unsigned char unused[30];
 } GP_param_record_t;
 
+#define SENSOR_SETTING_NAMELEN        (28)
+typedef struct {
+  char recname[SENSOR_SETTING_NAMELEN];             // null or length-terminated ASCII string
+  unsigned char xsum[4];
+} sensor_settings_record_ID_t;
 
-#define NONVOLATILE_FORMAT_VERSION      (0x01)      // version of format header
+
+#define NONVOLATILE_FORMAT_VERSION      (0x02)      // version of format header
 
 // size definitions
 // size/location definitions for hardware header information
@@ -144,7 +150,11 @@ typedef struct {
 #define FAULT_LOG_ENTRY_BYTE_OFFSET      (FAULT_LOG_HDR_BYTE_OFFSET+FAULT_LOG_ENTRY_SIZE)
 #define FAULT_LOG_SIZE                   (FAULT_LOG_ENTRY_SIZE*(FAULT_LOG_ENTRY_CNT+1))
 
-#define EEP_USED_AREA_SIZE					     (FAULT_LOG_HDR_BYTE_OFFSET+FAULT_LOG_SIZE)
+// Sensor Settings Record
+#define SENSOR_SETTINGS_BYTE_OFFSET      (FAULT_LOG_HDR_BYTE_OFFSET+FAULT_LOG_SIZE)
+#define SENSOR_SETTINGS_AREA_SIZE        (32)
+
+#define EEP_USED_AREA_SIZE					     (SENSOR_SETTINGS_BYTE_OFFSET+SENSOR_SETTINGS_AREA_SIZE)
 
 #if EEP_USED_AREA_SIZE > EEPSIZE
 #error "EEPROM is overallocated"

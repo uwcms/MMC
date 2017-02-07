@@ -1336,7 +1336,7 @@ void parse_UWMMC_cmds(const ipmb_msg_desc_t*preq, ipmb_msg_desc_t* prsp) {
       // Response Format:
       //   1          Completion Code.
       // ----Response bytes for page index 0----------------------------------------
-      //   2          Format code for nonvolatile storage.  Returns 0x01 for this version
+      //   2          Format code for nonvolatile storage.  Returns 0x02 for this version (starting at Version 2.3)
       //   3          Requested page index supplied in command (equals 0 for this section)
       //   4          EEPROM size in bytes, LS byte
       //   5          EEPROM size in bytes, MS byte
@@ -1367,6 +1367,10 @@ void parse_UWMMC_cmds(const ipmb_msg_desc_t*preq, ipmb_msg_desc_t* prsp) {
 	    //   13         Fault Log Area byte offset, LS byte
 		  //   14         Fault Log Area byte offset, MS byte
 		  //   15         Fault Log Area size, 8-byte units
+      //              *** NEW AT VERSION 2.3 ***
+      //   16         Sensor Settings Record ID offset, LS byte
+      //   17         Sensor Settings Record ID offset, MS byte
+      //   18         Sensor Settings Record size, 8-byte units
       switch (prqdata[1]) {
         case 0:
           IPMB_RS_CCODE(prsp->buf) = IPMI_RS_NORMAL_COMP_CODE;
@@ -1405,7 +1409,11 @@ void parse_UWMMC_cmds(const ipmb_msg_desc_t*preq, ipmb_msg_desc_t* prsp) {
 		      prsdata[13] = FAULT_LOG_HDR_BYTE_OFFSET & 0xff;
 		      prsdata[14] = FAULT_LOG_HDR_BYTE_OFFSET >> 8;
 		      prsdata[15] = FAULT_LOG_SIZE >> 3;
-          prsp->len += 14;
+          // new at version 2.3
+          prsdata[16] = SENSOR_SETTINGS_BYTE_OFFSET & 0xff;
+          prsdata[17] = SENSOR_SETTINGS_BYTE_OFFSET >> 8;
+          prsdata[18] = SENSOR_SETTINGS_AREA_SIZE >> 3;
+          prsp->len += 17;
           break;
 
         default:

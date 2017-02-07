@@ -52,7 +52,6 @@ __interrupt
 #endif
 static void fasttc_irq_hdlr(void) {
   unsigned long junk;
-  CAPBUF2_SAVEPC;
   junk = tc->channel[FASTTC].sr;
   make_callbacks(TEVENT_200USEC);
   prescale_TC0++;
@@ -70,7 +69,6 @@ __interrupt
 #endif
 static void slowtc_irq_hdlr(void) {
   unsigned long junk;
-  CAPBUF2_SAVEPC;
   junk = tc->channel[SLOWTC].sr;
   make_callbacks(TEVENT_10MSEC);
   prescale1_TC1++;

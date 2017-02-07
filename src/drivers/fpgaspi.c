@@ -16,6 +16,7 @@
 #include "fpgaspi.h"
 #include "gpio.h"
 #include "nonvolatile.h"
+#include "payload_mgr.h"
 
 #define XFER_BLK_SIZE               (32)
 
@@ -107,6 +108,13 @@ unsigned char fpgaspi_slave_detect(void) {
   unsigned char dbuf[PERIPH_VALIDATION_SPI_LEN];
   unsigned char pbuf[PERIPH_VALIDATION_SPI_LEN];
   int i1;
+  // NEW at 2.3a:  check backend power state first, return empty mask if all power off.
+  //   This is to provide immunity to sudden power dropout (say due to nonrecoverable sensor
+  //   event)
+  if (pyldmgr_get_backend_power_status() == power_off)
+    // back end power off
+    return 0;       // no slaves detected
+
   gpio_scanslv_mode();
   scanslv_detect_ctr = 2;         // initialize isr counter
   scanslv_detect_mask = 0;        // clear detect mask
@@ -207,6 +215,14 @@ int fpgaspi_data_write(const unsigned char deviceID, const unsigned char* pwbuf,
   while (1) {
     // set write enable latch
     Disable_global_interrupt();
+    // NEW at 2.3a:  verify that SPI1 is configured for operation (not forcibly shut off via interrupt
+    // in response to a power-off event) in order to prevent getting locked into an infinite loop, causing
+    // a watchdog event
+    if (!gpio_get_spi1_mode()) {
+      // not in SPI1 mode, abort operation
+      Enable_global_interrupt();
+      return 0;
+    }
     // send write command and starting address
     AVR32_SPI1.tdr = WRITE_DATA_CMD;
     while (!AVR32_SPI1.SR.tdre);      // wait for byte to move
@@ -272,6 +288,14 @@ int fpgaspi_data_read(const unsigned char deviceID, unsigned char* prbuf, unsign
   delayflag = 1;
   while (1) {
     Disable_global_interrupt();
+    // NEW at 2.3a:  verify that SPI1 is configured for operation (not forcibly shut off via interrupt
+    // in response to a power-off event) in order to prevent getting locked into an infinite loop, causing
+    // a watchdog event
+    if (!gpio_get_spi1_mode()) {
+      // not in SPI1 mode, abort operation
+      Enable_global_interrupt();
+      return 0;
+    }
     // send read command and starting address
     AVR32_SPI1.tdr = READ_DATA_CMD;
     while (!AVR32_SPI1.SR.tdre);      // wait for byte to move

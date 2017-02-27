@@ -456,8 +456,8 @@ unsigned int put_twi_msg(unsigned char* xbuf, unsigned short xlen) {
   
   // check for space in transmit queue
   if (xlen > chk_twi_xbuf_space())
-	// not enough space, abort put
-	return 0;
+	  // not enough space, abort put
+	  return 0;
 
   Int_Disable(giflag);
   bptr = xbuf;

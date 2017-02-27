@@ -10,7 +10,7 @@
 
 #define MAJOR_MMC_VERSION_NUMBER        (2)
 #define MINOR_MMC_VERSION_NUMBER        (3)
-#define MMC_VERSION_STRING              "2.3a (06Feb2017)"
+#define MMC_VERSION_STRING              "2.3b (12Feb2017)"
 #define MMC_VERSION_STRLEN              16
 
 

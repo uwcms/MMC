@@ -103,7 +103,7 @@
     </com_atmel_avrdbg_tool_jtagice3plus>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-    <OutputFileName>CTP-7_MMC_v2p2_Release</OutputFileName>
+    <OutputFileName>CTP-7_MMC_v2p3_Release</OutputFileName>
     <OutputFileExtension>.elf</OutputFileExtension>
     <ToolchainSettings>
       <Avr32Gcc>
@@ -146,7 +146,7 @@
         <avr32gcc.linker.miscellaneous.LinkerFlags>-Wl,--gc-sections -Wl,-e,_trampoline -T../linker/link_uc3a1512.lds</avr32gcc.linker.miscellaneous.LinkerFlags>
         <avr32gcc.linker.miscellaneous.OtherOptions>
           <ListValues>
-            <Value>-Map=../Release/CTP-7_MMC_v2p2_Release.map</Value>
+            <Value>-Map=../Release/CTP-7_MMC_v2p3_Release.map</Value>
           </ListValues>
         </avr32gcc.linker.miscellaneous.OtherOptions>
         <avr32gcc.assembler.general.IncludePaths>
@@ -165,7 +165,7 @@
     </ToolchainSettings>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-    <OutputFileName>CTP-7_MMC_v2p2_Debug</OutputFileName>
+    <OutputFileName>CTP-7_MMC_v2p3_Debug</OutputFileName>
     <OutputFileExtension>.elf</OutputFileExtension>
     <ToolchainSettings>
       <Avr32Gcc>
@@ -208,7 +208,7 @@
         <avr32gcc.linker.miscellaneous.LinkerFlags>-Wl,--gc-sections -Wl,-e,_trampoline -T../linker/link_uc3a1512.lds</avr32gcc.linker.miscellaneous.LinkerFlags>
         <avr32gcc.linker.miscellaneous.OtherOptions>
           <ListValues>
-            <Value>-Map=../Debug/CTP-7_MMC_v2p2_Debug.map</Value>
+            <Value>-Map=../Debug/CTP-7_MMC_v2p3_Debug.map</Value>
           </ListValues>
         </avr32gcc.linker.miscellaneous.OtherOptions>
         <avr32gcc.assembler.general.IncludePaths>

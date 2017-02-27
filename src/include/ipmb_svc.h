@@ -77,7 +77,7 @@ void ipmb_set_event_rcvr_lun(unsigned char lun);
 
 unsigned char ipmb_get_event_rcvr_lun(void);
 
-
+unsigned int ipmb_get_req_delete_count();
 
 
 #endif /* IPMB_SVC_H_ */

@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "sio_usart.h"
+#include "utils.h"
 #include "eepspi.h"
 #include "fault_log.h"
 #include "sio_usart.h"
@@ -32,7 +33,7 @@ void write_fault_log_entry(const fault_log_entry_t* pwrentry) {
 	int wraddr = FAULT_LOG_ENTRY_BYTE_OFFSET;
 	
 	wraddr += log_hdr.next_entry_idx*FAULT_LOG_ENTRY_SIZE;        // advance to proper address
-  while (eepspi_chk_write_in_progress());			// wait for EEPROM to be available	
+  while (eepspi_chk_write_in_progress()) Service_Watchdog();			// wait for EEPROM to be available	
 	eepspi_write((const unsigned char*) pwrentry, wraddr, sizeof(fault_log_entry_t));
 	log_hdr.entry_count++;
 	if (log_hdr.next_entry_idx >= FAULT_LOG_ENTRY_CNT-1)
@@ -40,7 +41,7 @@ void write_fault_log_entry(const fault_log_entry_t* pwrentry) {
 	else
 	  log_hdr.next_entry_idx++;
 	// update the header
-	while (eepspi_chk_write_in_progress());
+	while (eepspi_chk_write_in_progress()) Service_Watchdog();
 	eepspi_write((unsigned char*) &log_hdr, FAULT_LOG_HDR_BYTE_OFFSET, sizeof(fault_log_hdr_t));
 }
 
@@ -61,7 +62,7 @@ void get_fault_log_entry(const int entry_num, fault_log_entry_t* prdentry) {
 	if ((entry_num < 0) || (entry_num >= FAULT_LOG_ENTRY_CNT))
 	  return;     // entry number out of range
 	rdaddr += entry_num*FAULT_LOG_ENTRY_SIZE;
-  while (eepspi_chk_write_in_progress());			// wait for EEPROM to be available	
+  while (eepspi_chk_write_in_progress()) Service_Watchdog();			// wait for EEPROM to be available	
 	eepspi_read((unsigned char*) prdentry, rdaddr, sizeof(fault_log_entry_t));
 }
 
@@ -75,7 +76,7 @@ void erase_fault_log() {
 	memset((void*) &erase_buf[0], 0xff, EEPBLKSIZE);
 
 	// write all of the fault log entry bytes to 0xff, except for the header, which points to next index 0x00
-  while (eepspi_chk_write_in_progress());			// wait for EEPROM to be available
+  while (eepspi_chk_write_in_progress()) Service_Watchdog();			// wait for EEPROM to be available
   
   while (remwrlen) {
     if (remwrlen > EEPBLKSIZE)

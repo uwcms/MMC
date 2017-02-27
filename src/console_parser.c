@@ -176,6 +176,7 @@ void display_mgt_trim_settings(const const MGT_Vreg_settings_t*const pvrs);
 void change_paux(const char*const plinebuf, const char** plbpos, const int cmdwdID, const int paux_enable);
 void etimestr(char* sbuf, unsigned int timesec);
 void display_sensor_settings_rec(void);
+void eventmask2str(int sensortype, unsigned short eventmask, char* pbuf);
 
 
 void console_chk_cmd(void) {
@@ -381,6 +382,8 @@ void parse_cmd(const char*const plinebuf, const char** plbpos, const char* pcmdw
 
     case WD_CMD_IPMBSTATS:
 	    print_twi_driver_stats();
+      sprintf(spbuf, "Request Messages deleted as undeliverable:  %u\n", ipmb_get_req_delete_count());
+      sio_putstr(spbuf);
 		  break;
 		  
 		case WD_CMD_SLOTID:
@@ -489,26 +492,24 @@ void parse_cmd(const char*const plinebuf, const char** plbpos, const char* pcmdw
       sio_putstr(spbuf);
       break;
 
-
-
     case WD_CMD_OHO:
-	  sio_putstr("handle override OUT\n");
-	  set_handle_position_override(out_open, 0);
-	  break;
+  	  sio_putstr("handle override OUT\n");
+  	  set_handle_position_override(out_open, 0);
+  	  break;
 	  
-	case WD_CMD_OHI:
-	  sio_putstr("handle override IN\n");
-	  set_handle_position_override(in_closed, 0);
-	  break;
+	  case WD_CMD_OHI:
+  	  sio_putstr("handle override IN\n");
+	    set_handle_position_override(in_closed, 0);
+	    break;
 	
-	case WD_CMD_OHR:
-	  sio_putstr("handle override released\n");
-	  clear_handle_position_override();
-	  break;
+  	case WD_CMD_OHR:
+	    sio_putstr("handle override released\n");
+	    clear_handle_position_override();
+	    break;
 
-  case WD_CMD_DISPSENSREC:
-    display_sensor_settings_rec();
-    break;
+    case WD_CMD_DISPSENSREC:
+      display_sensor_settings_rec();
+      break;
 
     default:
       // should never come here since unrecognized words caught in match phase
@@ -635,6 +636,7 @@ void format_sensor_value_str(const int SensorNum, char* pbuf) {
 	sensor_data_entry_t* pSD;
 	char SensorNameBuf[20];         // buffer for sensor name from SDR
 	char SensorValBuf[20];
+  char MaskbitDecodeBuf[120];
 	unsigned short eventmask;
   unsigned char rawvalue;
 	
@@ -694,15 +696,17 @@ void format_sensor_value_str(const int SensorNum, char* pbuf) {
 			break;
 		
 		case SENSOR_SPECIFIC_READING_TYPE:
+      // get a string containing the decoded mask bits by sensor type
+			eventmask = pSD->cur_masked_comp;
+      eventmask2str(pSDR->sensortype, eventmask, MaskbitDecodeBuf);
 		  switch(pSDR->sensortype) {
 			  case FPGA_CONFIG_SENSOR_TYPE:
 			  case MODULE_BOARD_SENSOR_TYPE:
 			  case HOTSWAP_SENSOR_TYPE:
 			    // read out the event mask
-				  eventmask = pSD->cur_masked_comp;
-	        sprintf(pbuf, "%2i  %s:  0x%04x\n", SensorNum, SensorNameBuf, eventmask);
+	        sprintf(pbuf, "%2i  %s:  0x%04x %s\n", SensorNum, SensorNameBuf, eventmask, MaskbitDecodeBuf);
 				  break;
-			  
+        
 			  default:
 	        sprintf(pbuf, "%2i  %s:  unknown\n", SensorNum, SensorNameBuf);
 		      break;
@@ -1168,4 +1172,63 @@ void display_sensor_settings_rec(void) {
   } 
   sio_putstr("\n\n");
 }
+
+void eventmask2str(int sensortype, unsigned short eventmask, char* pbuf) {
+  // decodes the asserted events to a readable string buffer for certain discrete sensor types
+  const char* HotSwapEventStr[] = {
+    "[HdlClsd] ",
+    "[HdlOpen] ",
+    "[Quiesced] ",
+    "[BkndFail] ",
+    "[BkndShtdn] "
+  };
+  
+  const char* FPGACfgEventStr[] = {
+    "[Rsvd1] ",
+    "[Rsvd2] ",
+    "[SPIdet0] ",
+    "[ReqCfg0] ",
+    "[CfgRdy0] ",
+    "[SPIdet1] ",
+    "[ReqCfg1] ",
+    "[CfgRdy1] ",
+    "[SPIdet2] ",
+    "[ReqCfg2] ",
+    "[CfgRdy2] "
+  };
+  
+  char* pcur = pbuf;
+  int slen, i1;
+  
+  *pcur = 0;          // initialize string as null terminated
+  
+  switch (sensortype) {
+    case FPGA_CONFIG_SENSOR_TYPE:
+      for (i1 = FPGACFGEV_CFGRDY2; i1 >= FPGACFGEV_UNUSED_RESERVED1; i1--) 
+        if (eventmask & (1<<i1)) {
+          // append string onto the buffer
+          slen = strlen(FPGACfgEventStr[i1]);
+          strncpy(pcur, FPGACfgEventStr[i1], slen);
+          pcur += slen;
+        }
+      *pcur = 0;  // null terminate
+      break;
+      
+    case HOTSWAP_SENSOR_TYPE:
+      for (i1 = HOTSWAP_EVENT_BACKEND_SHUTDOWN; i1 >= HOTSWAP_EVENT_HANDLE_CLOSED; i1--)
+        if (eventmask & (1<<i1)) {
+          // append string onto the buffer
+          slen = strlen(HotSwapEventStr[i1]);
+          strncpy(pcur, HotSwapEventStr[i1], slen);
+          pcur += slen;
+        }
+      *pcur = 0;  // null terminate
+      break;
+      
+    default:
+      // noting to encode
+      return;
+  }    
+}
+
 

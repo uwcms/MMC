@@ -1,0 +1,18 @@
+*~
+tags
+*.tmp
+
+#############
+## Atmel Studio 6
+#############
+ 
+*.atsuo
+*.d
+*.eep
+*.elf
+*.lss
+*.map
+*.o
+*.mk
+Makefile
+TcfTransactionLog.csv

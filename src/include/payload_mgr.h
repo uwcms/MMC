@@ -67,8 +67,8 @@ typedef struct {
 	unsigned short warm_reset_timer;                  // timer for producing the reset pulse
 	unsigned short fpga_load_timer;                   // timer for producing the FPGA program strobe
 	unsigned short autoconfig_poll_timer;             // timer for regulating the autoconfig poll interval
-	unsigned long mmc_uptime;                         // up time of the MMC in seconds
-	unsigned long bkend_hottime;                      // hot time for the back end in seconds
+	//unsigned long mmc_uptime;                         // up time of the MMC in seconds
+	//unsigned long bkend_hottime;                      // hot time for the back end in seconds
 } state_record_t;
 
 

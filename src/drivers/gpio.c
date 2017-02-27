@@ -38,6 +38,16 @@ void gpio_spi1_mode(void) {
   GPIO.port[0].puers = (1 << FSIO_MISO);      // except for MISO
 }
 
+inline int gpio_get_spi1_mode(void) {
+  // checks the current pin state for SPI1 port, returns 1 if the port is in
+  // spi mode, and 0 if it is in GPIO mode.
+  unsigned long mask = (1 <<_FSIO_SS0) | (1<< FSIO_SCK) | (1 << FSIO_MOSI) | (1 << FSIO_MISO);
+  unsigned long gperval = GPIO.port[0].gper;
+  if ((gperval & mask) == 0x00000000)
+    // all bits cleared, therefore all bits in peripheral mode
+    return 1;
+  return 0;
+}
 
 void gpio_spi1_bitbang(void) {
 	// puts spi1 in bitbang mode (all GPIOs, all outputs except for MISO)

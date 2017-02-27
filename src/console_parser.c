@@ -7,6 +7,7 @@
 
 #include <avr32/io.h>
 #include <stdio.h>
+#include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
@@ -15,6 +16,7 @@
 #include "swevent.h"
 #include "timer_callback.h"
 #include "ejecthandle.h"
+#include "fpgaspi.h"
 #include "adc.h"
 #include "rtc.h"
 #include "twidriver.h"
@@ -59,6 +61,9 @@ typedef struct {
 #define WD_CMD_EVTUPDATE              (34)
 #define WD_CMD_BKENDPWR               (29)
 #define WD_CMD_FWLOAD                 (30)
+#define WD_CMD_OHO                    (46)
+#define WD_CMD_OHI                    (47)
+#define WD_CMD_OHR                    (48)
 
 // Word IDs for filter options
 #define WD_FILT_IPMIEVT               (5)
@@ -98,6 +103,9 @@ const WordListEntrytype Cmd_Wd_List[] = {
   {WD_CMD_DISPCB, "dispcb"},
   {WD_CMD_VERSION, "version"},
   {WD_CMD_EVTUPDATE, "evtrefresh"},
+  {WD_CMD_OHO, "ohout"},
+  {WD_CMD_OHI, "ohin"},
+  {WD_CMD_OHR, "ohrel"},
   {WD_EOLIST, ""} };
 
 const WordListEntrytype Filteropt_Wd_List[] = {
@@ -130,6 +138,7 @@ void sensor_test_evt(const char*const plinebuf, const char** plbpos, const int c
 void display_fault_log(const char*const plinebuf, const char** plbpos, const int cmdwdID);
 void bkendpwr_cmd(const char*const plinebuf, const char** plbpos, const int cmdwdID);
 void etimestr(char* sbuf, unsigned int timesec);
+void eventmask2str(int sensortype, unsigned short eventmask, char* pbuf);
 
 
 void console_chk_cmd(void) {
@@ -325,7 +334,9 @@ void parse_cmd(const char*const plinebuf, const char** plbpos, const char* pcmdw
 
     case WD_CMD_IPMBSTATS:
 	    print_twi_driver_stats();
-		  break;
+      sprintf(spbuf, "Request Messages deleted as undeliverable:  %u\n", ipmb_get_req_delete_count());
+      sio_putstr(spbuf);
+      break;
 		  
 		case WD_CMD_SLOTID:
 		  sprintf(spbuf, "uTCA Slot=%i  IPMB-L ADDR=%02Xh\n", twi_state.slotid, twi_state.ipmbl_addr);
@@ -399,7 +410,22 @@ void parse_cmd(const char*const plinebuf, const char** plbpos, const char* pcmdw
       sio_putstr("Retransmitting asserted events\n");
       update_sensor_events();
       break;
-	  
+      
+    case WD_CMD_OHO:
+    sio_putstr("handle override OUT\n");
+    set_handle_position_override(out_open, 0);
+    break;
+    
+    case WD_CMD_OHI:
+    sio_putstr("handle override IN\n");
+    set_handle_position_override(in_closed, 0);
+    break;
+    
+    case WD_CMD_OHR:
+    sio_putstr("handle override released\n");
+    clear_handle_position_override();
+    break;	
+      
     default:
       // should never come here since unrecognized words caught in match phase
       sprintf(spbuf, "?Parser Error, unknown Word ID %i\n", cmdwdID);
@@ -525,6 +551,7 @@ void format_sensor_value_str(const int SensorNum, char* pbuf) {
 	sensor_data_entry_t* pSD;
 	char SensorNameBuf[20];         // buffer for sensor name from SDR
 	char SensorValBuf[20];
+  char MaskbitDecodeBuf[120];
 	unsigned short eventmask;
   unsigned char rawvalue;
 	
@@ -579,21 +606,23 @@ void format_sensor_value_str(const int SensorNum, char* pbuf) {
 			break;
 		
 		case SENSOR_SPECIFIC_READING_TYPE:
-		  switch(pSDR->sensortype) {
-			  case FPGA_CONFIG_SENSOR_TYPE:
-			  case MODULE_BOARD_SENSOR_TYPE:
-			  case HOTSWAP_SENSOR_TYPE:
-			    // read out the event mask
-				  eventmask = pSD->cur_masked_comp;
-	        sprintf(pbuf, "%2i  %s:  0x%04x\n", SensorNum, SensorNameBuf, eventmask);
-				  break;
-			  
-			  default:
-	        sprintf(pbuf, "%2i  %s:  unknown\n", SensorNum, SensorNameBuf);
-		      break;
-			  
-		  }
-		  break;
+      // get a string containing the decoded mask bits by sensor type
+      eventmask = pSD->cur_masked_comp;
+      eventmask2str(pSDR->sensortype, eventmask, MaskbitDecodeBuf);
+      switch(pSDR->sensortype) {
+        case FPGA_CONFIG_SENSOR_TYPE:
+        case MODULE_BOARD_SENSOR_TYPE:
+        case HOTSWAP_SENSOR_TYPE:
+        // read out the event mask
+        sprintf(pbuf, "%2i  %s:  0x%04x %s\n", SensorNum, SensorNameBuf, eventmask, MaskbitDecodeBuf);
+        break;
+        
+        default:
+        sprintf(pbuf, "%2i  %s:  unknown\n", SensorNum, SensorNameBuf);
+        break;
+        
+      }
+      break;
 		  
 		default:
 	    sprintf(pbuf, "%2i  %s:  unknown\n", SensorNum, SensorNameBuf);
@@ -777,3 +806,63 @@ void etimestr(char* sbuf, unsigned int timesec) {
 
   sprintf(sbuf, "%li days %02li:%02li:%02li", days, hours, minutes, seconds);
 }
+
+void eventmask2str(int sensortype, unsigned short eventmask, char* pbuf) {
+  // decodes the asserted events to a readable string buffer for certain discrete sensor types
+  const char* HotSwapEventStr[] = {
+    "[HdlClsd] ",
+    "[HdlOpen] ",
+    "[Quiesced] ",
+    "[BkndFail] ",
+    "[BkndShtdn] "
+  };
+  
+  const char* FPGACfgEventStr[] = {
+    "[LdDone] ",
+    "[FWEvnt] ",
+    "[SPIdet0] ",
+    "[ReqCfg0] ",
+    "[CfgRdy0] ",
+    "[SPIdet1] ",
+    "[ReqCfg1] ",
+    "[CfgRdy1] ",
+    "[SPIdet2] ",
+    "[ReqCfg2] ",
+    "[CfgRdy2] "
+  };
+  
+  char* pcur = pbuf;
+  int slen, i1;
+  
+  *pcur = 0;          // initialize string as null terminated
+  
+  switch (sensortype) {
+    case FPGA_CONFIG_SENSOR_TYPE:
+    for (i1 = FPGACFGEV_CFGRDY2; i1 >= FPGACFGEV_LOAD_DONE; i1--)
+    if (eventmask & (1<<i1)) {
+      // append string onto the buffer
+      slen = strlen(FPGACfgEventStr[i1]);
+      strncpy(pcur, FPGACfgEventStr[i1], slen);
+      pcur += slen;
+    }
+    *pcur = 0;  // null terminate
+    break;
+    
+    case HOTSWAP_SENSOR_TYPE:
+    for (i1 = HOTSWAP_EVENT_BACKEND_SHUTDOWN; i1 >= HOTSWAP_EVENT_HANDLE_CLOSED; i1--)
+    if (eventmask & (1<<i1)) {
+      // append string onto the buffer
+      slen = strlen(HotSwapEventStr[i1]);
+      strncpy(pcur, HotSwapEventStr[i1], slen);
+      pcur += slen;
+    }
+    *pcur = 0;  // null terminate
+    break;
+    
+    default:
+    // noting to encode
+    return;
+  }
+}
+
+

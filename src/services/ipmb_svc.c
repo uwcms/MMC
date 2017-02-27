@@ -22,9 +22,10 @@
 #include "gpio.h"
 
 // request message table
-#define REQ_MSG_TBL_SIZE			(16)			// size of request message table -- make bigger in case more sensors crap out?
-#define REQ_MSG_TIMEOUT_LIMIT		(3)		// 100 ms ticks until message times out
-#define REQ_MSG_XMT_TRY_LIMIT		(5)			// max number of times message transmitted until we give up
+#define REQ_MSG_TBL_SIZE			(64)			// size of request message table -- make bigger in case more sensors crap out?
+#define REQ_MSG_TIMEOUT_LIMIT		(5)		// 100 ms ticks until message times out and gets scheduled for retransmit
+#define REQ_MSG_XMT_TIMEOUT_FAIL_LIMIT (100)       // 100 ms ticks until a message which fails to get into the TWI xmt queue is deleted
+#define REQ_MSG_XMT_TRY_LIMIT		(20)			// max number of times message transmitted until we give up
 
 typedef struct {
   unsigned char ocflag_rqSeq;				// entry occupied flag (bit 7) plus msg rqSeq in bit 5-0
@@ -46,6 +47,7 @@ void request_msg_dump(ipmb_msg_desc_t* pmsg);
 
 unsigned char event_rcvr_ipmbl_addr;
 unsigned char event_rcvr_lun;
+static unsigned int ReqDeleteCnt;             // counter of number of request messages deleted due to undeliverability
 
 unsigned char rqSEQ;
 req_msg_tbl_entry_t ReqMsgTbl[REQ_MSG_TBL_SIZE];
@@ -56,6 +58,7 @@ void ipmb_init(void) {
   memset((void*) &ReqMsgTbl, 0, sizeof(ReqMsgTbl));                   // fixed at 2.2a, zeroes entire table
   event_rcvr_ipmbl_addr = DEFAULT_EVT_RCVR_IPMBL_ADDR;
   event_rcvr_lun = 0;
+  ReqDeleteCnt = 0;
   register_timer_callback(xmt_retry_timer_callback, TEVENT_100MSEC_2);
 }
 
@@ -105,6 +108,12 @@ void ipmb_service(void) {
   // outgoing requests
   check_incoming_msgs();
   check_req_msg_table();
+}
+
+
+unsigned int ipmb_get_req_delete_count() {
+  // returns count of non-empty table indicies in request message table
+  return ReqDeleteCnt;
 }
 
 
@@ -207,7 +216,7 @@ int ipmb_send_request(ipmb_msg_desc_t* pmsg, ptrMsgCallback rspCallback) {
 #endif
   // try to transmit message
   if (!put_twi_msg(preq->msg.buf, preq->msg.len)) {
-    sio_filt_putstr(TXTFILT_DBG_SUMMARY, 1, "? Queue full, request message NOT enqueued\n  ");
+    sio_filt_putstr(TXTFILT_DBG_SUMMARY, 1, "? IPMB Queue full\n");
   }
   else {
 	  preq->timer = 0;				// zero out timer
@@ -224,7 +233,7 @@ int ipmb_send_response(ipmb_msg_desc_t* pmsg) {
     // add data checksum
     pmsg->buf[pmsg->len-1] = calc_ipmi_xsum(pmsg->buf+3, pmsg->len-4);
     if (!put_twi_msg(pmsg->buf, pmsg->len)) {
-      sio_filt_putstr(TXTFILT_DBG_SUMMARY, 1, "? Queue full, response message NOT enqueued\n  ");
+      sio_filt_putstr(TXTFILT_DBG_SUMMARY, 1, "? IPMB Queue full\n");
       raw_byte_char_dump(pmsg->buf, pmsg->len);
       return 0;
     }
@@ -239,7 +248,7 @@ void process_rsp_msg(ipmb_msg_desc_t* pmsg) {
   req_msg_tbl_entry_t* preq;
   int tblidx = match_rsp_to_req(IPMB_RS_rqSEQ_GET(pmsg->buf), IPMB_RS_rsSA(pmsg->buf));
   if (tblidx == -1) {
-    sprintf(spbuf, "(%s)  Unmatched received response:\n", systimestr());
+    sprintf(spbuf, "(%s  rqSEQ=0x%02x)  Unmatched Rcv'd Response\n", systimestr(), IPMB_RS_rqSEQ_GET(pmsg->buf));
     sio_filt_putstr(TXTFILT_DBG_SUMMARY, 1, spbuf);
     ipmb_msg_dump(pmsg, TXTFILT_DBG_DETAIL);
     post_swevent(IPMBEV_UNMATCHED_RSP_MSG, (void*) pmsg);
@@ -247,14 +256,26 @@ void process_rsp_msg(ipmb_msg_desc_t* pmsg) {
   }
   preq = &ReqMsgTbl[tblidx];
   // check netFN and command code to determine if this is a event message
-  if ((IPMB_RQ_netFN_GET(preq->msg.buf) == NETFN_SE) && (IPMB_RQ_CMD(preq->msg.buf) == IPMICMD_SE_PLATFORM_EVENT)) {
-    sprintf(spbuf, "(%s) Received Response, Completion Code=0x%02x", systimestr(), IPMB_RS_CCODE(pmsg->buf));
+  sprintf(spbuf, "(%s  rqSEQ=0x%02x) ReqMsgTbl[%i] Response Rcv'd, CC=0x%02x\n", systimestr(), IPMB_RS_rqSEQ_GET(pmsg->buf),
+    tblidx, IPMB_RS_CCODE(pmsg->buf));
+  // check netFN and command code to determine if this is a event message
+  if ((IPMB_RQ_netFN_GET(preq->msg.buf) == NETFN_SE) && (IPMB_RQ_CMD(preq->msg.buf) == IPMICMD_SE_PLATFORM_EVENT))
     sio_filt_putstr(TXTFILT_EVENTS, 1, spbuf);
-    if (IPMB_RS_CCODE(pmsg->buf) == IPMI_RS_NORMAL_COMP_CODE)
-      sio_filt_putstr(TXTFILT_EVENTS, 0, " (normal)\n");
-    else
-      sio_filt_putstr(TXTFILT_EVENTS, 0, "\n");
-  }	
+  else
+    sio_filt_putstr(TXTFILT_DBG_SUMMARY, 1, spbuf);
+  
+  // check the response completion code.  If it is "node busy", then the response is
+  // to be in effect dropped, with the transmit count and timer reset to zero.
+  // this will cause infinite retransmits of the request message (such as a hotswap event)
+  // so long as the node remains busy
+  if (IPMB_RS_CCODE(pmsg->buf) == IPMI_RS_NODE_BUSY) {
+    // reset tx count to 1 (indicating that it has been transmitted, and timer to 0.  This will
+    // cause a short delay and then a retransmit, with no accrual on the retry count
+    preq->timer = 0;
+    preq->xmtcnt = 1;
+    return;
+  }
+
   // if a callback is defined, make the call for further processing of the response message
   if (preq->prspcallback != NULL)
 	  (*preq->prspcallback)((void*) &(preq->msg), (void*) pmsg);			// request is arg1, response is arg2
@@ -269,11 +290,13 @@ int reserve_req_msg_table_entry(unsigned char msg_rqSEQ) {
   int i1;
   req_msg_tbl_entry_t* preq = &ReqMsgTbl[0];
   for (i1=0; i1<REQ_MSG_TBL_SIZE; i1++) {
-	if (!(preq->ocflag_rqSeq & 0x80)) {
-	  // this one is free
-	  preq->msg.len = 0;				// no message in buffer yet
-	  preq->xmtcnt = 0;
-	  preq->ocflag_rqSeq = 0x80 | msg_rqSEQ;		// set reservation key based on rqSEQ value
+	  if (!(preq->ocflag_rqSeq & 0x80)) {
+	    // this one is free
+	    preq->msg.len = 0;				// no message in buffer yet
+	    preq->xmtcnt = 0;
+	    preq->ocflag_rqSeq = 0x80 | msg_rqSEQ;		// set reservation key based on rqSEQ value
+      sprintf(spbuf, "Reserving ReqMsgTbl[%i]\n", i1);
+      sio_filt_putstr(TXTFILT_DBG_DETAIL, 1, spbuf);
       return i1;
     }
     preq++;
@@ -287,12 +310,11 @@ int xmt_retry_timer_callback(event evID, void* arg) {
   req_msg_tbl_entry_t* preq = &ReqMsgTbl[0];
 
   for (i1=0; i1<REQ_MSG_TBL_SIZE; i1++) {
-	// bump the timer for each occupied entry in the request table
-	if ((preq->ocflag_rqSeq & 0x80) && (preq->xmtcnt>0)) {
-	  // this table entry is occupied and has been transmitted--bump the response timer count
+    // bump the timer for each occupied entry in the request table
+    if ((preq->ocflag_rqSeq & 0x80) && (preq->xmtcnt>0))
+      // this table entry is occupied and has been transmitted--bump the response timer count
       preq->timer++;
-	    preq++;					// to next entry
-	  }
+    preq++;       // advance to next entry
   }
   return 1;
 }
@@ -311,7 +333,7 @@ void check_req_msg_table(void) {
     if (!xmtcnt) {
       // this request hasn't been transmitted yet, so send it
       if (!put_twi_msg(preq->msg.buf, preq->msg.len)) {
-        sio_filt_putstr(TXTFILT_DBG_SUMMARY, 1, "? Queue full, request message NOT enqueued\n  ");
+        sio_filt_putstr(TXTFILT_DBG_SUMMARY, 1, "? IPMB Queue full\n");
       }
       else {
       	preq->timer = 0;			// zero out timer
@@ -324,17 +346,29 @@ void check_req_msg_table(void) {
       continue;
     if (xmtcnt >= REQ_MSG_XMT_TRY_LIMIT) {
       // this message has been around too long without getting a response--delete it
-      sio_filt_putstr(TXTFILT_DBG_SUMMARY, 1, "? No ack received for request message, giving up on retries\n");
+      sio_filt_putstr(TXTFILT_DBG_SUMMARY, 1, "? No response received for request message, giving up on retries\n");
       post_swevent(IPMBEV_UNACK_REQ_MSG, (void*) &preq->msg);
 	    // if this request registered a callback function, make the callback, with a NULL value for the response message
       if (preq->prspcallback != NULL)
 	      (*preq->prspcallback)((void*) &(preq->msg), NULL);			// request is arg1, NULL for arg2
+      ReqDeleteCnt++;
       free_req_msg_table_entry(i1);
       continue;
     }
     // message needs retransmit
     if (!put_twi_msg(preq->msg.buf, preq->msg.len)) {
-      sio_filt_putstr(TXTFILT_DBG_SUMMARY, 1, "? Queue full, request message NOT enqueued\n  ");
+      sio_filt_putstr(TXTFILT_DBG_SUMMARY, 1, "? IPMB Queue full\n");
+      // Not having enough room on the TWI bus can happen if there is a bunch of events pending.  If that is the case, then
+      // we'll let it ride until the next time.  We used to think of it as an entirely abnormal situation, but in reality it is not.
+      // But if the message has failed to launch after some upper limit of time, we will mark it for deletion
+      if (timerval >= REQ_MSG_XMT_TIMEOUT_FAIL_LIMIT) {
+        preq->timer = 0;                        // this will shut off attempts at retransmit
+        preq->xmtcnt = REQ_MSG_XMT_TRY_LIMIT;   // this will force deletion on next pass of main loop
+        sprintf(spbuf, "(%s  rqSEQ=0x%02x)  ReqMsgTbl[%i] failed to enqueue to IPMB\n", 
+          systimestr(), IPMB_RQ_rqSEQ_GET(preq->msg.buf), i1);
+        sio_filt_putstr(TXTFILT_DBG_SUMMARY, 1, spbuf);
+      }
+/*
 	    // A full message queue indicates that the I2C bus is crashed, and I2C messages are getting NAK'd.  In this case it is
 	    // fair to say that something major has gone awry in the crate, and a reset of some sort will be forthcoming.  In the mean time
 		  // the transmit count will be bumped and the timer zeroed out, in order to limit the number of retries into a stuck queue.
@@ -342,10 +376,14 @@ void check_req_msg_table(void) {
 		  // unlimited number of times for this message
 		  preq->timer = 0;
 		  preq->xmtcnt++;
+*/
     }
     else {
   	  preq->timer = 0;				// zero out timer
   	  preq->xmtcnt++;				// bump transmit count
+      sprintf(spbuf, "(%s  rqSEQ=0x%02x)  ReqMsgTbl[%i] retransmitted (timerval=%i, xmtcnt=%i)\n",
+      systimestr(), IPMB_RQ_rqSEQ_GET(preq->msg.buf), i1, timerval, preq->xmtcnt);
+      sio_filt_putstr(TXTFILT_DBG_SUMMARY, 1, spbuf);
     }
     return;
   }
@@ -374,7 +412,8 @@ void free_req_msg_table_entry(int entry_index) {
   if ((entry_index <0) || (entry_index >= REQ_MSG_TBL_SIZE))
 	  return;			// out of range
   ReqMsgTbl[entry_index].ocflag_rqSeq = 0x00;				// clear occupied flag
-
+  sprintf(spbuf, "Freeing ReqMsgTbl[%i]\n", entry_index);
+  sio_filt_putstr(TXTFILT_DBG_DETAIL, 1, spbuf);
 }
 
 void ipmb_msg_dump(const ipmb_msg_desc_t* pmsg, int filtcode) {

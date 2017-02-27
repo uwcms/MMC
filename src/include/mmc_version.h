@@ -9,8 +9,8 @@
 #define MMC_VERSION_H_
 
 #define MAJOR_MMC_VERSION_NUMBER        (3)
-#define MINOR_MMC_VERSION_NUMBER        (0)
-#define MMC_VERSION_STRING              "3.0 (26May2015)"
+#define MINOR_MMC_VERSION_NUMBER        (1)
+#define MMC_VERSION_STRING              "3.1 (13Feb2017)"
 #define MMC_VERSION_STRLEN              15
 
 

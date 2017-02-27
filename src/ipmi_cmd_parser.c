@@ -1488,10 +1488,10 @@ void parse_UWMMC_cmds(const ipmb_msg_desc_t*preq, ipmb_msg_desc_t* prsp) {
         case EEP_ERASE_KEY_SUBFUNC:
           // get new key
           IPMB_RS_CCODE(prsp->buf) = IPMI_RS_NORMAL_COMP_CODE;
-          EEP_erase_key.issue_time = pyldmgr_state.ctl.mmc_uptime;      // take time snapshot
+          EEP_erase_key.issue_time = TIMESTATREC.uptime;      // take time snapshot
           // choose some dynamic data values to make the key
           EEP_erase_key.eep_erase_key[0] = AVR32_TC.channel[1].cv & 0xff;      // request msg checksum
-          EEP_erase_key.eep_erase_key[1] = pyldmgr_state.ctl.mmc_uptime & 0xff;
+          EEP_erase_key.eep_erase_key[1] = TIMESTATREC.uptime & 0xff;
           EEP_erase_key.eep_erase_key[2] = AVR32_TC.channel[0].cv & 0xff;
           EEP_erase_key.eep_erase_key[3] = (get_rtc_value() >> 8) & 0xff;
           prsdata[2] = EEP_erase_key.eep_erase_key[0];
@@ -1503,7 +1503,7 @@ void parse_UWMMC_cmds(const ipmb_msg_desc_t*preq, ipmb_msg_desc_t* prsp) {
 
         case EEP_ERASE_EXECUTE_SUBFUNC:
           // check key to make sure it is accurate and unexpired
-          if (((pyldmgr_state.ctl.mmc_uptime - EEP_erase_key.issue_time) > EEP_KEY_VALID_DURATION) ||
+          if (((TIMESTATREC.uptime - EEP_erase_key.issue_time) > EEP_KEY_VALID_DURATION) ||
             (prqdata[2] != EEP_erase_key.eep_erase_key[0]) || (prqdata[3] != EEP_erase_key.eep_erase_key[1]) ||
             (prqdata[4] != EEP_erase_key.eep_erase_key[2]) || (prqdata[5] != EEP_erase_key.eep_erase_key[3])) {
             // time expired or bad key

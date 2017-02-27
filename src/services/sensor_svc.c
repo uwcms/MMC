@@ -946,7 +946,12 @@ void Process_Sensors(int sensor_update_flag) {
 			  // unknown reading type, do nothing
 			  break;
 		}
-
+    
+    // generate sensor events
+    // Under normal conditions, only changes in the assertion and deassertion states require events.
+    // However at certain times, such as when the Carrier sends a SET_EVENT_RECEIVER command, the MMC is required to send
+    // a refresh of all assertion and deassertion events.  The sensor_update_flag argument to this function directs which
+    // handling method applies.
 	  if (sensor_update_flag) {
 	    // report events for all asserted states
       assertion_mask = pSD->cur_masked_comp & (pSD->pSDR->assertion_event_mask[LOWBYTE] | ((pSD->pSDR->assertion_event_mask[HIGHBYTE] & 0xf) << 8));
@@ -988,7 +993,7 @@ void update_sensor_discrete_state(int sensornum, int deassert_mask, int assert_m
 	// the assertions.  If multiple bits are to be asserted or deasserted, and the order of
 	// associated event transmission is important, then the transitions should be serialized into
 	// multiple calls
-	sensor_data_entry_t* pSD = &SensorData[HOTSWAP_SENSOR];
+	sensor_data_entry_t* pSD;
   unsigned short assertion_mask, deassertion_mask;
 
   if ((sensornum < 0) || (sensornum >= MAX_SENSOR_CNT))

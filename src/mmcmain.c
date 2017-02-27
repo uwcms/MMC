@@ -13,6 +13,7 @@
 #include "pwrmgr.h"
 #include "gpio.h"
 #include "sio_usart.h"
+#include "spi1.h"
 #include "intc.h"
 #include "twidriver.h"
 #include "timer_callback.h"
@@ -50,6 +51,7 @@ int main(void) {
   rtc_init();
   eepspi_init();
   eject_handle_init();
+  spi1_init();
   LED_init();
   Enable_global_interrupt();
 

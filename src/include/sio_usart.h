@@ -22,13 +22,13 @@
 #define CTRLR         (0x12)
 
 #define RX_BUFFER_SIZE		(128)
-#define TX_BUFFER_SIZE		(128)
+#define TX_BUFFER_SIZE		(1024)
 
 #define CHAR_ECHO_ENA		(1)
 #define CHAR_ECHO_DIS		(0)
 #define CHAR_ECHO_SETTING	CHAR_ECHO_ENA
 
-#define SPRINTBUFSIZE			(128)
+#define SPRINTBUFSIZE			(256)
 
 // console text filter flags
 #define TXTFILT_EVENTS            (0x01)      // outgoing IPMI event messages
